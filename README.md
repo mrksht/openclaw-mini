@@ -2,7 +2,7 @@
 
 A lightweight, self-hosted AI assistant built in Python. It connects to **Telegram**, runs as a **REPL**, or exposes an **HTTP API** — with persistent memory, tool execution, permission gating, and config-driven scheduled tasks (heartbeats).
 
-Built on top of the [Portkey AI Gateway](https://gateway.ai.cimpress.io) for model-agnostic LLM access (Claude, GPT, Gemini).
+Works with **Anthropic (Claude)**, **OpenAI (GPT)**, or the **Portkey AI Gateway** — pick your provider, set one env var, and go.
 
 ---
 
@@ -34,7 +34,7 @@ Built on top of the [Portkey AI Gateway](https://gateway.ai.cimpress.io) for mod
 
 ## Features
 
-- **Multi-turn conversations** with full context, powered by any LLM via Portkey
+- **Multi-turn conversations** with full context, powered by Anthropic, OpenAI, or Portkey
 - **Persistent memory** — save and recall facts across sessions (`save_memory` / `memory_search`)
 - **Session history** — JSONL-based logs with automatic compaction when context exceeds 100K tokens
 - **Tool use** — the LLM can run shell commands, read/write files, search the web
@@ -52,7 +52,7 @@ Built on top of the [Portkey AI Gateway](https://gateway.ai.cimpress.io) for mod
 |-------------|---------|---------|
 | **Python** | 3.12+ | [python.org](https://www.python.org/downloads/) or `brew install python@3.12` |
 | **uv** | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` or `brew install uv` |
-| **Portkey API Key** | — | Get from [Portkey Dashboard](https://gateway.ai.cimpress.io) |
+| **LLM API Key** | — | **One of:** Anthropic, OpenAI, or Portkey (see [LLM Provider Setup](#llm-provider-setup)) |
 | **Telegram Bot Token** | — | *(Optional)* Create via [@BotFather](https://t.me/BotFather) on Telegram |
 
 ---
@@ -111,17 +111,67 @@ options:
 
 ## Configuration
 
+### LLM Provider Setup
+
+Mini OpenClaw supports three LLM providers. You only need **one**. Set the corresponding API key in your `.env` file and the app auto-detects which provider to use.
+
+#### Option A: Anthropic (Claude) — Recommended for most users
+
+```env
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+OPENCLAW_MODEL=claude-sonnet-4-5-20250929
+```
+
+You'll also need the `openai` package (used as the HTTP client for Anthropic's OpenAI-compatible endpoint):
+
+```bash
+uv add openai
+```
+
+#### Option B: OpenAI (GPT)
+
+```env
+OPENAI_API_KEY=sk-your-key-here
+OPENCLAW_MODEL=gpt-4o
+```
+
+Install the OpenAI SDK:
+
+```bash
+uv add openai
+```
+
+#### Option C: Portkey Gateway (Vista / multi-provider)
+
+```env
+PORTKEY_API_KEY=your-portkey-key-here
+PORTKEY_BASE_URL=https://gateway.ai.cimpress.io/v1
+OPENCLAW_MODEL=@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+```
+
+Portkey is pre-installed as a core dependency — no extra packages needed.
+
+#### Explicit provider override
+
+If you have multiple API keys set, use `LLM_PROVIDER` to force one:
+
+```env
+LLM_PROVIDER=anthropic   # or "openai" or "portkey"
+```
+
 ### Environment Variables
 
 Create a `.env` file in the project root:
 
 ```env
-# ── Required ──
-PORTKEY_API_KEY=your-portkey-api-key-here
+# ── LLM Provider (pick one) ──
+ANTHROPIC_API_KEY=sk-ant-...    # Option A: Anthropic directly
+OPENAI_API_KEY=sk-...           # Option B: OpenAI directly
+PORTKEY_API_KEY=...             # Option C: Portkey gateway
 
-# ── Optional (have sensible defaults) ──
-PORTKEY_BASE_URL=https://gateway.ai.cimpress.io/v1
-OPENCLAW_MODEL=@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+# ── Optional ──
+LLM_PROVIDER=                   # Force provider: "anthropic", "openai", or "portkey"
+OPENCLAW_MODEL=claude-sonnet-4-5-20250929  # Model name (provider-specific)
 OPENCLAW_WORKSPACE=~/.mini-openclaw
 
 # ── Telegram only ──
@@ -130,11 +180,15 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `PORTKEY_API_KEY` | Yes | — | Your Portkey gateway API key |
+| `ANTHROPIC_API_KEY` | One of three | — | Anthropic API key (direct Claude access) |
+| `OPENAI_API_KEY` | One of three | — | OpenAI API key (direct GPT access) |
+| `PORTKEY_API_KEY` | One of three | — | Portkey gateway API key |
+| `LLM_PROVIDER` | No | *(auto-detected)* | Force provider: `anthropic`, `openai`, or `portkey` |
+| `OPENCLAW_MODEL` | No | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | Model identifier (use provider-native names) |
+| `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | Custom OpenAI-compatible endpoint |
 | `PORTKEY_BASE_URL` | No | `https://gateway.ai.cimpress.io/v1` | Portkey gateway URL |
-| `OPENCLAW_MODEL` | No | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | Default LLM model |
-| `OPENCLAW_WORKSPACE` | No | `~/.mini-openclaw` | Workspace directory for sessions, memory, config |
-| `OPENCLAW_CONFIG` | No | — | Explicit path to config.json (overrides auto-discovery) |
+| `OPENCLAW_WORKSPACE` | No | `~/.mini-openclaw` | Workspace directory |
+| `OPENCLAW_CONFIG` | No | — | Explicit path to config.json |
 | `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
 
 ### Config File (Optional)
@@ -343,21 +397,32 @@ All runtime data lives in `~/.mini-openclaw/` (configurable via `OPENCLAW_WORKSP
 
 ## Available Models
 
-Set via `OPENCLAW_MODEL` env var or `default_model` in config.json:
+Set via `OPENCLAW_MODEL` env var or `default_model` in config.json. Use **provider-native model names** matching your chosen provider:
 
-**Anthropic:**
-- `@Anthropic/eu.anthropic.claude-opus-4-6-v1`
-- `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` *(default)*
-- `@Anthropic/eu.anthropic.claude-haiku-4-5-20251001-v1:0`
+### Anthropic (direct)
+| Model | `OPENCLAW_MODEL` value |
+|-------|------------------------|
+| Claude Opus 4 | `claude-opus-4-0-20250514` |
+| Claude Sonnet 4.5 | `claude-sonnet-4-5-20250929` |
+| Claude Sonnet 4 | `claude-sonnet-4-20250514` |
+| Claude Haiku 3.5 | `claude-3-5-haiku-20241022` |
 
-**OpenAI:**
-- `@OpenAI/gpt-5.2`, `@OpenAI/gpt-5.1`, `@OpenAI/gpt-5`
-- `@OpenAI/o4-mini`, `@OpenAI/o3`
-- `@OpenAI/gpt-4o`, `@OpenAI/gpt-4o-mini`
+### OpenAI (direct)
+| Model | `OPENCLAW_MODEL` value |
+|-------|------------------------|
+| GPT-4o | `gpt-4o` |
+| GPT-4o mini | `gpt-4o-mini` |
+| o3 | `o3` |
+| o4-mini | `o4-mini` |
 
-**Google:**
-- `@Google/gemini-3-pro-preview`, `@Google/gemini-3-flash-preview`
-- `@Google/gemini-2.5-pro`, `@Google/gemini-2.5-flash`
+### Portkey Gateway
+Use the `@Provider/model` format:
+
+| Provider | Examples |
+|----------|----------|
+| Anthropic | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` *(default)* |
+| OpenAI | `@OpenAI/gpt-4o`, `@OpenAI/o4-mini` |
+| Google | `@Google/gemini-2.5-pro`, `@Google/gemini-2.5-flash` |
 
 ---
 
@@ -440,7 +505,8 @@ workspace/
 | `ModuleNotFoundError: No module named 'telegram'` | Run `uv sync --extra telegram` |
 | `ModuleNotFoundError: No module named 'flask'` | Run `uv sync --extra http` |
 | `TELEGRAM_BOT_TOKEN not set in .env` | Add your bot token to the `.env` file |
-| `PORTKEY_API_KEY` is empty | Add your Portkey API key to the `.env` file |
+| No LLM API key set | Set one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `PORTKEY_API_KEY` in `.env` |
+| `ImportError: openai package required` | Run `uv add openai` (needed for Anthropic/OpenAI direct providers) |
 | Permission denied on shell commands | The operator terminal shows an approval prompt — type `y` to allow |
 | Heartbeats not firing | They start after first Telegram message. Check `config.json` has heartbeats defined |
 | `uv sync --extra X` uninstalled other extras | Use `uv sync --all-extras` or combine: `uv sync --extra telegram --extra dev` |

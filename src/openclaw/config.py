@@ -19,10 +19,20 @@ from dotenv import load_dotenv
 # Load .env from project root if present
 load_dotenv()
 
-# ── Portkey / LLM Settings ──
+# ── LLM Settings ──
+# Supports three providers:
+#   1. Portkey gateway (default for Vista) — set PORTKEY_API_KEY
+#   2. OpenAI directly — set OPENAI_API_KEY
+#   3. Anthropic directly — set ANTHROPIC_API_KEY
+# The env var LLM_PROVIDER controls which client is created.
+# If unset, auto-detected from whichever API key is present.
 
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").lower()  # "portkey", "openai", "anthropic", or ""
 PORTKEY_API_KEY = os.getenv("PORTKEY_API_KEY", "")
 PORTKEY_BASE_URL = os.getenv("PORTKEY_BASE_URL", "https://gateway.ai.cimpress.io/v1")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 DEFAULT_MODEL = os.getenv(
     "OPENCLAW_MODEL", "@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 )
@@ -64,15 +74,61 @@ MAX_TOOL_TURNS = 20
 COMPACTION_THRESHOLD_TOKENS = 100_000
 
 
+def _detect_provider() -> str:
+    """Auto-detect which LLM provider to use based on available API keys."""
+    if LLM_PROVIDER:
+        return LLM_PROVIDER
+    if PORTKEY_API_KEY:
+        return "portkey"
+    if ANTHROPIC_API_KEY:
+        return "anthropic"
+    if OPENAI_API_KEY:
+        return "openai"
+    return "portkey"  # fallback
+
+
 def get_portkey_client():
-    """Create a Portkey client instance.
+    """Create an LLM client instance (OpenAI-compatible interface).
 
-    Uses the same pattern as Vista's project-rag:
-    - api_key from PORTKEY_API_KEY env var
-    - base_url from PORTKEY_BASE_URL env var (defaults to Vista gateway)
+    Supports three providers — auto-detected from env vars:
+      - Portkey gateway: PORTKEY_API_KEY (default for Vista users)
+      - OpenAI directly: OPENAI_API_KEY
+      - Anthropic directly: ANTHROPIC_API_KEY (requires openai SDK as bridge)
+
+    All return a client with `client.chat.completions.create(...)`.
     """
-    from portkey_ai import Portkey
+    provider = _detect_provider()
 
+    if provider == "anthropic":
+        # Anthropic's own SDK doesn't match the OpenAI interface, so we use
+        # the OpenAI SDK pointed at Anthropic's OpenAI-compatible endpoint.
+        try:
+            from openai import OpenAI
+        except ImportError:
+            raise ImportError(
+                "The 'openai' package is required for Anthropic provider. "
+                "Install it: uv add openai"
+            )
+        return OpenAI(
+            api_key=ANTHROPIC_API_KEY,
+            base_url="https://api.anthropic.com/v1/",
+        )
+
+    if provider == "openai":
+        try:
+            from openai import OpenAI
+        except ImportError:
+            raise ImportError(
+                "The 'openai' package is required for OpenAI provider. "
+                "Install it: uv add openai"
+            )
+        return OpenAI(
+            api_key=OPENAI_API_KEY,
+            base_url=OPENAI_BASE_URL,
+        )
+
+    # Default: Portkey gateway
+    from portkey_ai import Portkey
     return Portkey(
         api_key=PORTKEY_API_KEY,
         base_url=PORTKEY_BASE_URL,
