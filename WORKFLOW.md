@@ -106,7 +106,7 @@ Reads `.env` from the project root via `python-dotenv`. Module-level constants:
 | `OPENAI_API_KEY`            | `OPENAI_API_KEY`     | `""`                                                          |
 | `OPENAI_BASE_URL`           | `OPENAI_BASE_URL`    | `https://api.openai.com/v1`                                   |
 | `PORTKEY_API_KEY`           | `PORTKEY_API_KEY`    | `""`                                                          |
-| `PORTKEY_BASE_URL`          | `PORTKEY_BASE_URL`   | `https://gateway.ai.cimpress.io/v1`                           |
+| `PORTKEY_BASE_URL`          | `PORTKEY_BASE_URL`   | `https://api.portkey.ai/v1`                                   |
 | `DEFAULT_MODEL`             | `OPENCLAW_MODEL`     | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0`     |
 | `WORKSPACE_DIR`             | `OPENCLAW_WORKSPACE` | `~/.mini-openclaw`                                            |
 | `MAX_TOOL_TURNS`            | —                    | `20`                                                          |

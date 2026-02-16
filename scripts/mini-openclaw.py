@@ -20,7 +20,7 @@ Or with the project's virtualenv:
 
 Environment variables:
     PORTKEY_API_KEY       — Portkey gateway API key (required)
-    PORTKEY_BASE_URL      — Gateway URL (default: https://gateway.ai.cimpress.io)
+    PORTKEY_BASE_URL      — Gateway URL (required)
     OPENCLAW_MODEL        — Model identifier (default: Anthropic Claude Sonnet)
     OPENCLAW_WORKSPACE    — Workspace dir (default: ~/.mini-openclaw)
 """
@@ -48,7 +48,7 @@ except ImportError:
     pass
 
 PORTKEY_API_KEY = os.getenv("PORTKEY_API_KEY", "")
-PORTKEY_BASE_URL = os.getenv("PORTKEY_BASE_URL", "https://gateway.ai.cimpress.io")
+PORTKEY_BASE_URL = os.getenv("PORTKEY_BASE_URL", "https://api.portkey.ai/v1")
 DEFAULT_MODEL = os.getenv(
     "OPENCLAW_MODEL",
     "@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
