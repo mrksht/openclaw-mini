@@ -1,0 +1,46 @@
+[project]
+name = "openclaw-clone"
+version = "0.1.0"
+description = "A minimal OpenClaw clone — persistent AI assistant with memory, tools, and multi-channel support"
+requires-python = ">=3.12"
+dependencies = [
+    "portkey-ai>=2.1.0",
+    "python-dotenv>=1.0.0",
+    "schedule>=1.2.0",
+]
+
+[project.optional-dependencies]
+telegram = ["python-telegram-bot>=21.0"]
+discord = ["discord.py>=2.3.0"]
+http = ["flask>=3.0.0"]
+all = [
+    "python-telegram-bot>=21.0",
+    "discord.py>=2.3.0",
+    "flask>=3.0.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.8.0",
+]
+
+[project.scripts]
+openclaw = "openclaw.main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openclaw"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
