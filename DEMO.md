@@ -1,5 +1,6 @@
 # Mini OpenClaw — AI Agent with Memory, Tools & Scheduled Tasks
 
+
 A lightweight, self-hosted AI assistant built in Python that can run on **Telegram**, a **REPL**, or **HTTP**. It remembers things across sessions, executes shell commands with approval, reads/writes files, searches the web, and runs scheduled "heartbeat" tasks — all driven by config, not code changes.
 
 ---
