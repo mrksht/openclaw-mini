@@ -34,7 +34,7 @@ A **persistent AI assistant** built in Python (~1500 LOC) that can:
 - Run **scheduled background tasks** (heartbeats)
 - Route messages to **multiple agents** (Jarvis, Scout)
 
-All powered by LLMs via the **Portkey AI gateway** (supports Anthropic, OpenAI, Google models).
+All powered by LLMs via **Anthropic**, **OpenAI**, or the **Portkey AI gateway** — pick your provider, set one env var, and go.
 
 ---
 
@@ -43,7 +43,7 @@ All powered by LLMs via the **Portkey AI gateway** (supports Anthropic, OpenAI, 
 | Component       | Technology                                                                 |
 | --------------- | -------------------------------------------------------------------------- |
 | Language         | Python 3.12+                                                               |
-| LLM Gateway      | **Portkey AI** (OpenAI-compatible SDK) — routes to Anthropic/OpenAI/Google |
+| LLM Provider      | **Anthropic** / **OpenAI** / **Portkey Gateway** (auto-detected, all OpenAI-compatible interface) |
 | Env Config       | `python-dotenv`                                                            |
 | Scheduling       | `schedule` library                                                         |
 | HTTP Channel     | Flask (optional extra)                                                     |
@@ -101,12 +101,21 @@ Reads `.env` from the project root via `python-dotenv`. Module-level constants:
 
 | Constant                    | Env Var              | Default                                                       |
 | --------------------------- | -------------------- | ------------------------------------------------------------- |
+| `LLM_PROVIDER`              | `LLM_PROVIDER`       | `""` (auto-detected from API keys)                            |
+| `ANTHROPIC_API_KEY`         | `ANTHROPIC_API_KEY`  | `""`                                                          |
+| `OPENAI_API_KEY`            | `OPENAI_API_KEY`     | `""`                                                          |
+| `OPENAI_BASE_URL`           | `OPENAI_BASE_URL`    | `https://api.openai.com/v1`                                   |
 | `PORTKEY_API_KEY`           | `PORTKEY_API_KEY`    | `""`                                                          |
-| `PORTKEY_BASE_URL`          | `PORTKEY_BASE_URL`   | `https://gateway.ai.cimpress.io`                              |
-| `DEFAULT_MODEL`             | `OPENCLAW_MODEL`     | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` |
+| `PORTKEY_BASE_URL`          | `PORTKEY_BASE_URL`   | `https://gateway.ai.cimpress.io/v1`                           |
+| `DEFAULT_MODEL`             | `OPENCLAW_MODEL`     | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0`     |
 | `WORKSPACE_DIR`             | `OPENCLAW_WORKSPACE` | `~/.mini-openclaw`                                            |
 | `MAX_TOOL_TURNS`            | —                    | `20`                                                          |
 | `COMPACTION_THRESHOLD_TOKENS` | —                  | `100,000`                                                     |
+
+**Provider auto-detection priority:** If `LLM_PROVIDER` is not set, the first API key found wins:
+1. `PORTKEY_API_KEY` → Portkey gateway
+2. `ANTHROPIC_API_KEY` → Anthropic direct
+3. `OPENAI_API_KEY` → OpenAI direct
 
 Derived paths (all under `WORKSPACE_DIR`):
 - `SESSIONS_DIR` → `~/.mini-openclaw/sessions`
@@ -140,7 +149,19 @@ Derived paths (all under `WORKSPACE_DIR`):
 
 ### Key Function: `get_portkey_client()`
 
-Creates a Portkey client instance using the API key and base URL. This client is **OpenAI-compatible** — it speaks the same `chat.completions.create()` API but routes through Portkey's gateway to reach Anthropic, OpenAI, or Google models.
+Creates an LLM client instance based on the detected provider. Despite the name (kept for backward compatibility), it supports three providers:
+
+| Provider | What it creates | SDK used |
+|----------|----------------|----------|
+| **Portkey** | `Portkey(api_key, base_url)` | `portkey-ai` (core dependency) |
+| **Anthropic** | `OpenAI(api_key, base_url="https://api.anthropic.com/v1/")` | `openai` (optional extra) |
+| **OpenAI** | `OpenAI(api_key, base_url)` | `openai` (optional extra) |
+
+All three return a client with the same `client.chat.completions.create(...)` interface, so the rest of the codebase is provider-agnostic.
+
+The helper `_detect_provider()` determines which provider to use:
+1. If `LLM_PROVIDER` env var is set → use that
+2. Else auto-detect from whichever API key is present (Portkey > Anthropic > OpenAI)
 
 ### Key Function: `ensure_workspace()`
 
@@ -292,7 +313,7 @@ The default interactive terminal interface.
 
 1. **Setup workspace** — creates dirs, copies default `SOUL.md` if missing
 2. **Initialize all components:**
-   - `get_portkey_client()` → Portkey client
+   - `get_portkey_client()` → LLM client (Anthropic, OpenAI, or Portkey — auto-detected)
    - `SessionStore(SESSIONS_DIR)` → session persistence
    - `MemoryStore(MEMORY_DIR)` → long-term memory
    - `PermissionManager(APPROVALS_FILE, approval_callback=_approval_prompt)` → with interactive y/n prompt
@@ -845,10 +866,10 @@ You: What files are in /tmp?
       → SessionStore.append() → writes to JSONL
 
    e. LLM LOOP — Iteration 1:
-      → Calls Portkey API:
-        POST https://gateway.ai.cimpress.io/v1/chat/completions
+      → Calls LLM API (provider-dependent):
+        POST <provider_base_url>/chat/completions
         {
-          "model": "@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+          "model": "<configured model e.g. claude-sonnet-4-5-20250929 or gpt-4o>",
           "messages": [
             {"role": "system", "content": "# Who You Are\n**Name:** Jarvis\n..."},
             ...previous messages...,
@@ -874,7 +895,7 @@ You: What files are in /tmp?
       → ATOMIC PERSIST: assistant tool-call msg + tool result msg
 
    f. LLM LOOP — Iteration 2:
-      → Calls Portkey API again (now with tool result in messages)
+      → Calls LLM API again (now with tool result in messages)
 
       ← LLM responds with text (no tool calls):
         "Here are the files in /tmp:\n- foo.txt\n- bar.txt\n- data.csv"
