@@ -44,7 +44,7 @@ Channel ──▶ AgentRouter ──▶ Agent Loop (LLM + Tool calls)
 
 - **Python 3.12+**
 - **[uv](https://docs.astral.sh/uv/)** — fast Python package manager
-- A **Portkey API key** ([gateway.ai.cimpress.io](https://gateway.ai.cimpress.io))
+- An **LLM API key** — Anthropic, OpenAI, or [Portkey](https://portkey.ai) (see README for setup)
 - *(Optional)* A **Telegram Bot Token** from [@BotFather](https://t.me/BotFather)
 
 ### 1. Clone & Install
@@ -63,7 +63,7 @@ Create a `.env` file in the project root:
 
 ```env
 PORTKEY_API_KEY=your-portkey-api-key
-PORTKEY_BASE_URL=https://gateway.ai.cimpress.io/v1
+PORTKEY_BASE_URL=https://api.portkey.ai/v1
 OPENCLAW_MODEL=@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
 
 # Only needed for Telegram channel:

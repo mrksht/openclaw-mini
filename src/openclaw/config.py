@@ -3,8 +3,6 @@
 Supports two modes:
 1. Module-level constants (backward compatible, env-var driven)
 2. JSON config file at ~/.mini-openclaw/config.json (for advanced setups)
-
-Uses the same Portkey gateway pattern as Vista's project-rag.
 """
 
 from __future__ import annotations
@@ -21,7 +19,7 @@ load_dotenv()
 
 # ── LLM Settings ──
 # Supports three providers:
-#   1. Portkey gateway (default for Vista) — set PORTKEY_API_KEY
+#   1. Portkey gateway (default) — set PORTKEY_API_KEY
 #   2. OpenAI directly — set OPENAI_API_KEY
 #   3. Anthropic directly — set ANTHROPIC_API_KEY
 # The env var LLM_PROVIDER controls which client is created.
@@ -29,7 +27,7 @@ load_dotenv()
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").lower()  # "portkey", "openai", "anthropic", or ""
 PORTKEY_API_KEY = os.getenv("PORTKEY_API_KEY", "")
-PORTKEY_BASE_URL = os.getenv("PORTKEY_BASE_URL", "https://gateway.ai.cimpress.io/v1")
+PORTKEY_BASE_URL = os.getenv("PORTKEY_BASE_URL", "https://api.portkey.ai/v1")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -91,7 +89,7 @@ def get_portkey_client():
     """Create an LLM client instance (OpenAI-compatible interface).
 
     Supports three providers — auto-detected from env vars:
-      - Portkey gateway: PORTKEY_API_KEY (default for Vista users)
+      - Portkey gateway: PORTKEY_API_KEY (default)
       - OpenAI directly: OPENAI_API_KEY
       - Anthropic directly: ANTHROPIC_API_KEY (requires openai SDK as bridge)
 

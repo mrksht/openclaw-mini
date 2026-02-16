@@ -141,11 +141,11 @@ Install the OpenAI SDK:
 uv add openai
 ```
 
-#### Option C: Portkey Gateway (Vista / multi-provider)
+#### Option C: Portkey Gateway (multi-provider)
 
 ```env
 PORTKEY_API_KEY=your-portkey-key-here
-PORTKEY_BASE_URL=https://gateway.ai.cimpress.io/v1
+PORTKEY_BASE_URL=https://api.portkey.ai/v1
 OPENCLAW_MODEL=@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
 
@@ -186,7 +186,7 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
 | `LLM_PROVIDER` | No | *(auto-detected)* | Force provider: `anthropic`, `openai`, or `portkey` |
 | `OPENCLAW_MODEL` | No | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | Model identifier (use provider-native names) |
 | `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | Custom OpenAI-compatible endpoint |
-| `PORTKEY_BASE_URL` | No | `https://gateway.ai.cimpress.io/v1` | Portkey gateway URL |
+| `PORTKEY_BASE_URL` | No | `https://api.portkey.ai/v1` | Portkey gateway URL |
 | `OPENCLAW_WORKSPACE` | No | `~/.mini-openclaw` | Workspace directory |
 | `OPENCLAW_CONFIG` | No | — | Explicit path to config.json |
 | `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
@@ -516,4 +516,4 @@ workspace/
 
 ## License
 
-Internal project — Vista.
+Personal project — Rakshit.
