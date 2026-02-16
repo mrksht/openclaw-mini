@@ -1,93 +1,519 @@
-# openclaw-mini
+# Mini OpenClaw
 
+A lightweight, self-hosted AI assistant built in Python. It connects to **Telegram**, runs as a **REPL**, or exposes an **HTTP API** — with persistent memory, tool execution, permission gating, and config-driven scheduled tasks (heartbeats).
 
+Works with **Anthropic (Claude)**, **OpenAI (GPT)**, or the **Portkey AI Gateway** — pick your provider, set one env var, and go.
 
-## Getting started
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Table of Contents
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Config File](#config-file-optional)
+  - [SOUL.md — Agent Personality](#soulmd--agent-personality)
+- [Running](#running)
+  - [Interactive REPL](#interactive-repl)
+  - [Telegram Bot](#telegram-bot)
+  - [HTTP API](#http-api)
+- [Tools](#tools)
+- [Heartbeats (Scheduled Tasks)](#heartbeats-scheduled-tasks)
+- [Multi-Agent Routing](#multi-agent-routing)
+- [Workspace Layout](#workspace-layout)
+- [Available Models](#available-models)
+- [Development](#development)
+  - [Running Tests](#running-tests)
+  - [Linting](#linting)
+  - [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
 
-## Add your files
+---
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Features
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/vistaprint-org/merchandising-technology/platform-components/sample-test-projects/openclaw-mini.git
-git branch -M main
-git push -uf origin main
-```
+- **Multi-turn conversations** with full context, powered by Anthropic, OpenAI, or Portkey
+- **Persistent memory** — save and recall facts across sessions (`save_memory` / `memory_search`)
+- **Session history** — JSONL-based logs with automatic compaction when context exceeds 100K tokens
+- **Tool use** — the LLM can run shell commands, read/write files, search the web
+- **Permission control** — dangerous shell commands require operator approval in the terminal
+- **Heartbeat scheduler** — cron-like tasks defined in `config.json`, fired autonomously on a timer
+- **Customizable personality** — define who the agent is via `SOUL.md`
+- **Multi-channel** — Telegram, HTTP API, or interactive REPL
+- **Multi-agent routing** — prefix-based routing (e.g., `/research` routes to a different agent)
 
-## Integrate with your tools
+---
 
-* [Set up project integrations](https://gitlab.com/vistaprint-org/merchandising-technology/platform-components/sample-test-projects/openclaw-mini/-/settings/integrations)
+## Prerequisites
 
-## Collaborate with your team
+| Requirement | Version | Install |
+|-------------|---------|---------|
+| **Python** | 3.12+ | [python.org](https://www.python.org/downloads/) or `brew install python@3.12` |
+| **uv** | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` or `brew install uv` |
+| **LLM API Key** | — | **One of:** Anthropic, OpenAI, or Portkey (see [LLM Provider Setup](#llm-provider-setup)) |
+| **Telegram Bot Token** | — | *(Optional)* Create via [@BotFather](https://t.me/BotFather) on Telegram |
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+---
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### 1. Clone the repository
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+git clone <repo-url> openclaw-clone
+cd openclaw-clone
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### 2. Install dependencies
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+# Core only (REPL mode)
+uv sync
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+# With Telegram support
+uv sync --extra telegram
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+# With HTTP API support
+uv sync --extra http
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+# Everything (Telegram + HTTP + Discord + dev tools)
+uv sync --all-extras
+```
+
+> **Important:** Use `--all-extras` if you want multiple channels. Running `uv sync --extra telegram` alone will *uninstall* other extras. To combine specific ones:
+> ```bash
+> uv sync --extra telegram --extra http --extra dev
+> ```
+
+### 3. Verify installation
+
+```bash
+uv run openclaw --help
+```
+
+Expected output:
+```
+usage: openclaw [-h] [--config CONFIG] [--channel {repl,http,telegram}]
+
+Mini OpenClaw — AI assistant
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG, -c CONFIG
+                        Path to config.json file
+  --channel {repl,http,telegram}
+                        Channel to start (default: repl)
+```
+
+---
+
+## Configuration
+
+### LLM Provider Setup
+
+Mini OpenClaw supports three LLM providers. You only need **one**. Set the corresponding API key in your `.env` file and the app auto-detects which provider to use.
+
+#### Option A: Anthropic (Claude) — Recommended for most users
+
+```env
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+OPENCLAW_MODEL=claude-sonnet-4-5-20250929
+```
+
+You'll also need the `openai` package (used as the HTTP client for Anthropic's OpenAI-compatible endpoint):
+
+```bash
+uv add openai
+```
+
+#### Option B: OpenAI (GPT)
+
+```env
+OPENAI_API_KEY=sk-your-key-here
+OPENCLAW_MODEL=gpt-4o
+```
+
+Install the OpenAI SDK:
+
+```bash
+uv add openai
+```
+
+#### Option C: Portkey Gateway (multi-provider)
+
+```env
+PORTKEY_API_KEY=your-portkey-key-here
+PORTKEY_BASE_URL=https://api.portkey.ai/v1
+OPENCLAW_MODEL=@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+```
+
+Portkey is pre-installed as a core dependency — no extra packages needed.
+
+#### Explicit provider override
+
+If you have multiple API keys set, use `LLM_PROVIDER` to force one:
+
+```env
+LLM_PROVIDER=anthropic   # or "openai" or "portkey"
+```
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# ── LLM Provider (pick one) ──
+ANTHROPIC_API_KEY=sk-ant-...    # Option A: Anthropic directly
+OPENAI_API_KEY=sk-...           # Option B: OpenAI directly
+PORTKEY_API_KEY=...             # Option C: Portkey gateway
+
+# ── Optional ──
+LLM_PROVIDER=                   # Force provider: "anthropic", "openai", or "portkey"
+OPENCLAW_MODEL=claude-sonnet-4-5-20250929  # Model name (provider-specific)
+OPENCLAW_WORKSPACE=~/.mini-openclaw
+
+# ── Telegram only ──
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
+```
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | One of three | — | Anthropic API key (direct Claude access) |
+| `OPENAI_API_KEY` | One of three | — | OpenAI API key (direct GPT access) |
+| `PORTKEY_API_KEY` | One of three | — | Portkey gateway API key |
+| `LLM_PROVIDER` | No | *(auto-detected)* | Force provider: `anthropic`, `openai`, or `portkey` |
+| `OPENCLAW_MODEL` | No | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | Model identifier (use provider-native names) |
+| `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | Custom OpenAI-compatible endpoint |
+| `PORTKEY_BASE_URL` | No | `https://api.portkey.ai/v1` | Portkey gateway URL |
+| `OPENCLAW_WORKSPACE` | No | `~/.mini-openclaw` | Workspace directory |
+| `OPENCLAW_CONFIG` | No | — | Explicit path to config.json |
+| `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
+
+### Config File (Optional)
+
+The app auto-discovers `~/.mini-openclaw/config.json` on startup. You can also pass `--config <path>` explicitly.
+
+```json
+{
+  "default_model": "@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  "workspace": "~/.mini-openclaw",
+
+  "heartbeats": [
+    {
+      "name": "time-sayer",
+      "schedule": "every 1 minute",
+      "prompt": "Tell me the current time and a fun fact or motivational quote. Keep it to 2-3 sentences.",
+      "agent": "main"
+    }
+  ],
+
+  "permissions": {
+    "safe_commands": [
+      "ls", "cat", "head", "tail", "wc", "grep", "find",
+      "echo", "date", "pwd", "whoami", "which", "file",
+      "git", "python", "python3", "node", "npm", "npx",
+      "uv", "pip", "ruff", "pytest", "go", "cargo", "make"
+    ]
+  }
+}
+```
+
+### SOUL.md — Agent Personality
+
+Place a `SOUL.md` file at `~/.mini-openclaw/SOUL.md` to define the agent's personality. A default is provided at `workspace/SOUL.md` in the repo.
+
+Example:
+```markdown
+# Who You Are
+
+**Name:** Jarvis
+**Role:** Personal AI assistant
+
+## Personality
+- Be genuinely helpful, not performatively helpful
+- Skip the "Great question!" — just help
+- Be concise when needed, thorough when it matters
+```
+
+---
+
+## Running
+
+### Interactive REPL
+
+```bash
+uv run openclaw
+```
+
+Type messages, get responses. Press `Ctrl+C` to exit.
+
+### Telegram Bot
+
+**Setup (one-time):**
+
+1. Message [@BotFather](https://t.me/BotFather) on Telegram → `/newbot` → follow prompts
+2. Copy the bot token into your `.env` as `TELEGRAM_BOT_TOKEN`
+3. Install the Telegram extra: `uv sync --extra telegram`
+
+**Run:**
+
+```bash
+uv run openclaw --channel telegram
+```
+
+Output:
+```
+Mini OpenClaw — Telegram
+  Model: @Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+  Agents: Jarvis, Scout
+  Tools: shell, read_file, write_file, save_memory, memory_search, web_search
+  Heartbeats: time-sayer (starts on first message)
+```
+
+Open your bot in Telegram and send `/start`. The bot auto-captures your chat ID on first interaction. Heartbeats begin firing after your first message.
+
+**Permission approval:** When the bot tries to run a shell command (e.g., the user asks "create a file"), the terminal where openclaw is running will prompt:
+
+```
+  ⚠️  Telegram user requesting command: echo "hello" > test.txt
+  Allow? (y/n):
+```
+
+Safe commands (ls, cat, git, python, etc.) are auto-approved.
+
+### HTTP API
+
+```bash
+uv sync --extra http
+uv run openclaw --channel http
+```
+
+Starts a Flask server on `0.0.0.0:5000`. Send POST requests:
+
+```bash
+curl -X POST http://localhost:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello!", "user_id": "user-1"}'
+```
+
+---
+
+## Tools
+
+The agent has access to these tools (LLM decides when to use them):
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `shell` | Execute shell commands in the workspace | Safe commands auto-approved; others require operator approval |
+| `read_file` | Read the contents of a file | Always allowed |
+| `write_file` | Create or overwrite a file | Always allowed |
+| `save_memory` | Persist a fact to long-term memory (markdown file) | Always allowed |
+| `memory_search` | Search long-term memory for previously saved facts | Always allowed |
+| `web_search` | Search the web via DuckDuckGo | Always allowed |
+
+**Safe commands** (auto-approved): `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `find`, `echo`, `date`, `pwd`, `whoami`, `which`, `file`, `git`, `python`, `python3`, `node`, `npm`, `npx`, `uv`, `pip`, `ruff`, `pytest`, `go`, `cargo`, `make`
+
+Customize the safe list in `config.json` under `permissions.safe_commands`.
+
+---
+
+## Heartbeats (Scheduled Tasks)
+
+Heartbeats are autonomous tasks the agent runs on a schedule without user input. Define them in `~/.mini-openclaw/config.json`:
+
+```json
+{
+  "heartbeats": [
+    {
+      "name": "morning-briefing",
+      "schedule": "every day at 07:30",
+      "prompt": "Good morning! Give me a motivational quote to start the day.",
+      "agent": "main"
+    },
+    {
+      "name": "health-check",
+      "schedule": "every 5 minutes",
+      "prompt": "Run 'date' and report the current server time.",
+      "agent": "main"
+    }
+  ]
+}
+```
+
+**Supported schedule formats:**
+
+| Format | Example |
+|--------|---------|
+| Every N seconds | `every 30 seconds` |
+| Every N minutes | `every 5 minutes` |
+| Every N hours | `every 2 hours` |
+| Daily at time | `every day at 07:30` |
+| Weekly on day | `every monday at 09:00` |
+
+Each heartbeat gets its own isolated session (`cron:<name>`) so it doesn't pollute interactive conversations. Results are sent to the owner's Telegram chat (auto-detected from the first user interaction).
+
+---
+
+## Multi-Agent Routing
+
+The system supports multiple agents with prefix-based routing:
+
+| Agent | Prefix | Description |
+|-------|--------|-------------|
+| **Jarvis** | *(default — no prefix)* | Main assistant, uses `SOUL.md` |
+| **Scout** | `/research` | Research-focused agent, uses `SCOUT.md` if present |
+
+Send `/research What are the latest trends in AI?` in Telegram to route to Scout.
+
+Add more agents by creating a `SCOUT.md` in `~/.mini-openclaw/` or by defining agents in `config.json`.
+
+---
+
+## Workspace Layout
+
+All runtime data lives in `~/.mini-openclaw/` (configurable via `OPENCLAW_WORKSPACE`):
+
+```
+~/.mini-openclaw/
+├── config.json              # App config: heartbeats, permissions, agents
+├── SOUL.md                  # Agent personality prompt
+├── SCOUT.md                 # (Optional) Scout agent personality
+├── exec-approvals.json      # Previously approved shell commands (cached)
+├── sessions/                # Conversation history (JSONL)
+│   ├── telegram:123456.jsonl
+│   ├── cron:time-sayer.jsonl
+│   └── repl:default.jsonl
+└── memory/                  # Persistent memory (markdown files)
+    └── user-preferences.md
+```
+
+- **Sessions** are JSONL files — one JSON object per message. They auto-compact (summarize) when exceeding 100K tokens.
+- **Memory** files are plain markdown — fully human-readable and editable.
+- **Approvals** cache previously approved commands so you don't re-approve the same command.
+
+---
+
+## Available Models
+
+Set via `OPENCLAW_MODEL` env var or `default_model` in config.json. Use **provider-native model names** matching your chosen provider:
+
+### Anthropic (direct)
+| Model | `OPENCLAW_MODEL` value |
+|-------|------------------------|
+| Claude Opus 4 | `claude-opus-4-0-20250514` |
+| Claude Sonnet 4.5 | `claude-sonnet-4-5-20250929` |
+| Claude Sonnet 4 | `claude-sonnet-4-20250514` |
+| Claude Haiku 3.5 | `claude-3-5-haiku-20241022` |
+
+### OpenAI (direct)
+| Model | `OPENCLAW_MODEL` value |
+|-------|------------------------|
+| GPT-4o | `gpt-4o` |
+| GPT-4o mini | `gpt-4o-mini` |
+| o3 | `o3` |
+| o4-mini | `o4-mini` |
+
+### Portkey Gateway
+Use the `@Provider/model` format:
+
+| Provider | Examples |
+|----------|----------|
+| Anthropic | `@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` *(default)* |
+| OpenAI | `@OpenAI/gpt-4o`, `@OpenAI/o4-mini` |
+| Google | `@Google/gemini-2.5-pro`, `@Google/gemini-2.5-flash` |
+
+---
+
+## Development
+
+### Running Tests
+
+```bash
+# Install dev dependencies
+uv sync --extra dev
+
+# Run all tests
+uv run pytest
+
+# Run with verbose output
+uv run pytest -v
+
+# Run a specific test file
+uv run pytest tests/test_config.py
+```
+
+### Linting
+
+```bash
+# Check for issues
+uv run ruff check .
+
+# Auto-fix
+uv run ruff check . --fix
+
+# Format
+uv run ruff format .
+```
+
+### Project Structure
+
+```
+src/openclaw/
+├── main.py                  # CLI entry point, channel launchers
+├── config.py                # Env vars, AppConfig, Portkey client setup
+├── agent/
+│   ├── loop.py              # Core agent loop: LLM call → tool execution → repeat
+│   ├── router.py            # Multi-agent routing (prefix-based)
+│   └── soul.py              # SOUL.md loader
+├── channels/
+│   ├── base.py              # Abstract channel interface
+│   ├── repl.py              # Interactive terminal REPL
+│   ├── telegram.py          # Telegram bot (python-telegram-bot)
+│   ├── http_api.py          # Flask REST API
+│   └── discord_ch.py        # Discord bot (placeholder)
+├── heartbeat/
+│   └── scheduler.py         # Background cron scheduler (schedule lib)
+├── memory/
+│   └── store.py             # Markdown-based persistent memory
+├── permissions/
+│   └── manager.py           # Command approval/deny with safe-list
+├── queue/
+│   └── command_queue.py     # Thread-safe command queue
+├── session/
+│   ├── store.py             # JSONL session persistence
+│   └── compaction.py        # Context window compaction (summarization)
+└── tools/
+    ├── registry.py          # Tool registration and lookup
+    ├── shell.py             # Shell command execution tool
+    ├── filesystem.py        # File read/write tools
+    ├── memory_tools.py      # save_memory / memory_search tools
+    └── web.py               # Web search tool (DuckDuckGo)
+
+tests/                       # pytest test suite (12 test files)
+workspace/
+└── SOUL.md                  # Default agent personality (copied to ~/.mini-openclaw/)
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `ModuleNotFoundError: No module named 'telegram'` | Run `uv sync --extra telegram` |
+| `ModuleNotFoundError: No module named 'flask'` | Run `uv sync --extra http` |
+| `TELEGRAM_BOT_TOKEN not set in .env` | Add your bot token to the `.env` file |
+| No LLM API key set | Set one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `PORTKEY_API_KEY` in `.env` |
+| `ImportError: openai package required` | Run `uv add openai` (needed for Anthropic/OpenAI direct providers) |
+| Permission denied on shell commands | The operator terminal shows an approval prompt — type `y` to allow |
+| Heartbeats not firing | They start after first Telegram message. Check `config.json` has heartbeats defined |
+| `uv sync --extra X` uninstalled other extras | Use `uv sync --all-extras` or combine: `uv sync --extra telegram --extra dev` |
+| Config not loading | Ensure `~/.mini-openclaw/config.json` exists, or pass `--config <path>` |
+
+---
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Personal project — Rakshit.
