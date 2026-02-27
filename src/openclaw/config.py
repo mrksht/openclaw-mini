@@ -66,6 +66,18 @@ MEMORY_DIR = os.path.join(WORKSPACE_DIR, "memory")
 APPROVALS_FILE = os.path.join(WORKSPACE_DIR, "exec-approvals.json")
 SOUL_PATH = os.path.join(WORKSPACE_DIR, "SOUL.md")
 
+# ── Slack Settings ──
+
+SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN", "")
+SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN", "")
+SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "")
+SLACK_OWNER_ID = os.getenv("SLACK_OWNER_ID", "")  # Your Slack member ID (DM target)
+
+# ── GitLab Settings ──
+
+GITLAB_URL = os.getenv("GITLAB_URL", "https://gitlab.com")
+GITLAB_PRIVATE_TOKEN = os.getenv("GITLAB_PRIVATE_TOKEN", "")
+
 # ── Agent Settings ──
 
 MAX_TOOL_TURNS = 20

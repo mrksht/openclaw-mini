@@ -1,7 +1,7 @@
 # Mini OpenClaw — AI Agent with Memory, Tools & Scheduled Tasks
 
 
-A lightweight, self-hosted AI assistant built in Python that can run on **Telegram**, a **REPL**, or **HTTP**. It remembers things across sessions, executes shell commands with approval, reads/writes files, searches the web, and runs scheduled "heartbeat" tasks — all driven by config, not code changes.
+A lightweight, self-hosted AI assistant built in Python that can run on **Telegram**, **Slack**, a **REPL**, or **HTTP**. It remembers things across sessions, executes shell commands with approval, reads/writes files, searches the web, and runs scheduled "heartbeat" tasks — all driven by config, not code changes.
 
 ---
 
@@ -12,18 +12,19 @@ A lightweight, self-hosted AI assistant built in Python that can run on **Telegr
 | **Multi-turn chat** | Conversations with full context, powered by Claude/GPT/Gemini via Portkey gateway |
 | **Persistent memory** | `save_memory` / `memory_search` — stored as markdown files, survives restarts |
 | **Session history** | JSONL-based session logs with automatic compaction when context grows too large |
-| **Tool use** | The LLM can call tools: run shell commands, read/write files, search the web |
+| **Tool use** | The LLM can call tools: run shell commands, read/write files, search the web, fetch GitLab MR details |
 | **Permission control** | Dangerous commands require operator approval (prompted in terminal) |
 | **Heartbeat scheduler** | Cron-like scheduled tasks defined in `config.json` — the agent runs autonomously on a timer |
 | **Personality (SOUL)** | Customizable system prompt in `SOUL.md` — define who the agent is |
-| **Multi-channel** | Telegram, HTTP API, or interactive REPL — same agent, different frontends |
+| **Multi-channel** | Telegram, Slack, HTTP API, or interactive REPL — same agent, different frontends |
+| **Slack MR digest** | Monitors Slack channels for GitLab MR links, sends a private DM digest to the owner |
 
 ---
 
 ## Architecture at a Glance
 
 ```
-User (Telegram / REPL / HTTP)
+User (Telegram / Slack / REPL / HTTP)
   │
   ▼
 Channel ──▶ AgentRouter ──▶ Agent Loop (LLM + Tool calls)
@@ -54,7 +55,7 @@ Channel ──▶ AgentRouter ──▶ Agent Loop (LLM + Tool calls)
 git clone <repo-url> openclaw-clone
 cd openclaw-clone
 
-# Install with all extras (telegram, http, discord, dev tools)
+# Install with all extras (telegram, slack, http, discord, dev tools)
 uv sync --all-extras
 ```
 
@@ -69,6 +70,16 @@ OPENCLAW_MODEL=@Anthropic/eu.anthropic.claude-sonnet-4-5-20250929-v1:0
 
 # Only needed for Telegram channel:
 TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+
+# Only needed for Slack channel:
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_APP_TOKEN=xapp-your-app-level-token
+SLACK_OWNER_ID=your-slack-member-id
+SLACK_CHANNEL_ID=                        # optional — leave empty to scan all bot channels
+
+# Optional — GitLab MR enrichment (used by Slack digest & gitlab_mr tool):
+GITLAB_URL=https://gitlab.com
+GITLAB_PRIVATE_TOKEN=glpat-your-token
 ```
 
 ### 3. (Optional) Configure Heartbeats
@@ -98,6 +109,9 @@ uv run openclaw
 # Telegram bot
 uv run openclaw --channel telegram
 
+# Slack bot (monitors channels for MR links, sends DM digest)
+uv run openclaw --channel slack
+
 # HTTP API (port 5000)
 uv run openclaw --channel http
 ```
@@ -114,6 +128,7 @@ uv run openclaw --channel http
 | `web_search` | Search the web via DuckDuckGo |
 | `save_memory` | Persist a fact to long-term memory |
 | `memory_search` | Recall facts from previous sessions |
+| `gitlab_mr` | Fetch GitLab MR details (title, state, author, reviewers, approval) |
 
 ---
 

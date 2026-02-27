@@ -34,24 +34,29 @@ def _serialize_tool_calls(tool_calls) -> list[dict[str, Any]]:
 
 def _serialize_assistant_message(message) -> dict[str, Any]:
     """Convert an OpenAI ChatCompletionMessage to a serializable dict."""
-    msg: dict[str, Any] = {"role": "assistant", "content": message.content}
+    # Bedrock/Anthropic rejects empty content — use a fallback
+    content = message.content or "(no response)"
+    msg: dict[str, Any] = {"role": "assistant", "content": content}
     if message.tool_calls:
         msg["tool_calls"] = _serialize_tool_calls(message.tool_calls)
     return msg
 
 
 def _sanitize_loaded_messages(messages: list[dict]) -> list[dict]:
-    """Remove trailing orphaned assistant tool-call messages.
+    """Clean up loaded session messages.
 
-    If the session was interrupted between saving an assistant message with
-    tool_calls and saving the corresponding tool results (e.g. crash, old bug),
-    those orphan messages would cause Anthropic/Bedrock to reject the request.
-
-    We walk backwards and strip any trailing assistant messages that have
-    tool_calls without subsequent tool-result messages.
+    1. Fix empty content fields — Bedrock/Anthropic rejects messages with
+       empty or null content.
+    2. Remove trailing orphaned assistant tool-call messages that have no
+       subsequent tool-result messages (e.g. from crashes).
     """
     if not messages:
         return messages
+
+    # Fix empty content fields
+    for msg in messages:
+        if msg.get("role") in ("assistant", "user") and not msg.get("content"):
+            msg["content"] = "(no response)" if msg["role"] == "assistant" else "(empty)"
 
     # Walk backwards from the end — find any orphaned tool_calls
     while messages:

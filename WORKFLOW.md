@@ -27,7 +27,7 @@
 
 A **persistent AI assistant** built in Python (~1500 LOC) that can:
 
-- Talk to you via **multiple channels** (REPL, HTTP API, Telegram)
+- Talk to you via **multiple channels** (REPL, HTTP API, Telegram, Slack)
 - **Execute shell commands** with safety permissions
 - **Read/write files** on your machine
 - **Remember things** across sessions (long-term memory)
@@ -48,6 +48,7 @@ All powered by LLMs via **Anthropic**, **OpenAI**, or the **Portkey AI gateway**
 | Scheduling       | `schedule` library                                                         |
 | HTTP Channel     | Flask (optional extra)                                                     |
 | Telegram Channel | `python-telegram-bot` (optional extra)                                     |
+| Slack Channel    | `slack-bolt` + `slack-sdk` (optional extra, Socket Mode)                   |
 | Build System     | Hatchling                                                                  |
 | Testing          | pytest + pytest-asyncio                                                    |
 | Linting          | Ruff                                                                       |
@@ -69,7 +70,7 @@ Running `openclaw` (or `uv run openclaw`) calls `main()`, which does three thing
 
 1. **Parses CLI arguments:**
    - `--config <path>` — path to a JSON config file (optional)
-   - `--channel repl|http|telegram` — which channel to start (default: `repl`)
+   - `--channel repl|http|telegram|slack` — which channel to start (default: `repl`)
 
 2. **Loads configuration:**
    - With `--config`: loads `AppConfig.from_file(path)` and validates it
@@ -79,11 +80,13 @@ Running `openclaw` (or `uv run openclaw`) calls `main()`, which does three thing
    - `repl` → `run_repl()` — interactive terminal
    - `http` → `_start_http(config)` — Flask web server
    - `telegram` → `_start_telegram(config)` — Telegram bot
+   - `slack` → `_start_slack(config)` — Slack bot (Socket Mode)
 
 ```
 $ openclaw                          # → REPL mode (default)
 $ openclaw --channel http           # → HTTP API on port 5000
 $ openclaw --channel telegram       # → Telegram bot (needs TELEGRAM_BOT_TOKEN)
+$ openclaw --channel slack          # → Slack bot (needs SLACK_BOT_TOKEN + SLACK_APP_TOKEN)
 $ openclaw -c config.json --channel http  # → HTTP with custom config
 ```
 
@@ -298,7 +301,7 @@ All channels implement the `ChannelAdapter` abstract base class:
 ```python
 class ChannelAdapter(ABC):
     @property
-    def name(self) -> str: ...       # "repl", "http", "telegram"
+    def name(self) -> str: ...       # "repl", "http", "telegram", "slack"
     def start(self) -> None: ...     # Start the channel
     def stop(self) -> None: ...      # Gracefully stop
 ```
@@ -366,6 +369,33 @@ Uses `python-telegram-bot` library with **long-polling** (no webhook needed).
 - Splits responses longer than 4096 chars (Telegram's limit) into multiple messages
 - Logs all activity to terminal for operator visibility
 - Each Telegram chat gets its own isolated session key
+
+### Slack Channel
+
+**File:** `src/openclaw/channels/slack_ch.py`
+
+Uses `slack-bolt` with **Socket Mode** (no public URL/webhook needed).
+
+**What it does:**
+
+1. **Channel monitoring (listen-only):** Scans all channels the bot is a member of (or a single channel via `SLACK_CHANNEL_ID`) for GitLab MR links. Detected MR links are logged but the bot never posts into public channels.
+
+2. **DM conversations:** The bot owner (`SLACK_OWNER_ID`) can DM the bot directly — messages are routed through the agent router just like REPL/Telegram.
+
+3. **MR digest via heartbeat:** A scheduled heartbeat (`daily-mr-digest`) scans the last 24 hours of channel messages, extracts MR links, enriches them with GitLab API data (title, state, author, reviewers, approval status), and sends a formatted digest DM to the owner.
+
+**Key components:**
+- `send_dm(text)` — opens a DM channel with the owner and posts a message (handles chunking for long messages)
+- `compile_mr_digest()` — fetches channel messages, extracts MR URLs, deduplicates, enriches via GitLab API, and formats into a digest
+- `_fetch_channel_messages(hours)` — scans all bot channels for messages containing MR links within a time window
+- `_get_bot_channels()` — discovers all channels the bot is a member of (public + private, falls back to public-only if `groups:read` scope is missing)
+
+**Environment variables:**
+- `SLACK_BOT_TOKEN` — bot token (`xoxb-...`)
+- `SLACK_APP_TOKEN` — app-level token (`xapp-...`) for Socket Mode
+- `SLACK_OWNER_ID` — Slack member ID of the owner (DM recipient)
+- `SLACK_CHANNEL_ID` — (optional) limit scanning to one channel
+- `GITLAB_URL` + `GITLAB_PRIVATE_TOKEN` — (optional) enables MR enrichment
 
 ---
 
@@ -512,7 +542,7 @@ class Tool:
 | `execute(name, input)`  | Dispatches to the tool's handler. Catches exceptions — never raises. |
 | `tool_names`            | List of registered tool names |
 
-### The 6 Registered Tools
+### The 7 Registered Tools
 
 #### 1. `run_command` — Shell Execution
 **File:** `src/openclaw/tools/shell.py`
@@ -573,6 +603,19 @@ Output: "[Web search stub] Results for: Python 3.13 release date\nNote: Connect 
 ```
 
 Currently a placeholder. To enable real search, connect SerpAPI, Brave Search, or similar.
+
+#### 7. `gitlab_mr` — GitLab Merge Request Details
+**File:** `src/openclaw/tools/gitlab_mr.py`
+
+```
+Input:  {"mr_url": "https://gitlab.com/group/project/-/merge_requests/123"}
+Output: "**Fix login bug**\n  State: opened\n  Author: Jane\n  Branch: fix-login → main\n  Reviewers: John, Alice\n  Created: 2026-02-20 | Updated: 2026-02-25\n  URL: ..."
+```
+
+- Fetches MR details from the GitLab API (`/api/v4/projects/.../merge_requests/...`)
+- Requires `GITLAB_URL` and `GITLAB_PRIVATE_TOKEN` env vars
+- Returns title, state, author, source/target branch, reviewers, approval status, dates
+- Also used by the Slack channel’s `compile_mr_digest()` for periodic MR digest DMs
 
 ---
 
@@ -928,11 +971,11 @@ You: What files are in /tmp?
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                      Gateway                            │
-│  ┌───────────┐  ┌──────────┐  ┌──────────┐  ┌───────┐  │
-│  │ Telegram  │  │ Discord  │  │ HTTP API │  │  REPL  │  │
-│  │ Adapter   │  │ Adapter  │  │ Adapter  │  │Adapter │  │
-│  └─────┬─────┘  └────┬─────┘  └────┬─────┘  └───┬───┘  │
-│        └──────────────┴─────────────┴────────────┘      │
+│  ┌───────────┐  ┌────────┐  ┌──────────┐  ┌───────┐  │
+│  │ Telegram  │  │ Slack  │  │ HTTP API │  │  REPL │  │
+│  │ Adapter   │  │Adapter │  │ Adapter  │  │Adapter│  │
+│  └─────┬─────┘  └───┬────┘  └────┬─────┘  └───┬───┘  │
+│        └─────────────┴────────────┴────────────┘      │
 │                         │                               │
 │              ┌──────────▼──────────┐                    │
 │              │   Command Queue     │                    │
@@ -983,6 +1026,7 @@ You: What files are in /tmp?
 | `src/openclaw/channels/repl.py` | ~150 | Interactive terminal channel |
 | `src/openclaw/channels/http_api.py` | ~130 | Flask REST API channel |
 | `src/openclaw/channels/telegram.py` | ~240 | Telegram bot channel |
+| `src/openclaw/channels/slack_ch.py` | ~448 | Slack bot channel (MR monitoring, DM digest) |
 | `src/openclaw/session/store.py` | ~110 | JSONL session persistence |
 | `src/openclaw/session/compaction.py` | ~110 | Context window compression |
 | `src/openclaw/memory/store.py` | ~100 | Long-term file-based memory |
@@ -991,6 +1035,7 @@ You: What files are in /tmp?
 | `src/openclaw/tools/filesystem.py` | ~80 | File read/write tools |
 | `src/openclaw/tools/memory_tools.py` | ~65 | Memory save/search tools |
 | `src/openclaw/tools/web.py` | ~35 | Web search stub tool |
+| `src/openclaw/tools/gitlab_mr.py` | ~130 | GitLab MR details tool |
 | `src/openclaw/permissions/manager.py` | ~100 | Command approval & allowlist |
 | `src/openclaw/queue/command_queue.py` | ~50 | Per-session concurrency locks |
 | `src/openclaw/heartbeat/scheduler.py` | ~190 | Cron-like scheduled agent tasks |

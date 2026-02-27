@@ -1,6 +1,6 @@
 # Mini OpenClaw
 
-A lightweight, self-hosted AI assistant built in Python. It connects to **Telegram**, runs as a **REPL**, or exposes an **HTTP API** — with persistent memory, tool execution, permission gating, and config-driven scheduled tasks (heartbeats).
+A lightweight, self-hosted AI assistant built in Python. It connects to **Telegram**, **Slack**, runs as a **REPL**, or exposes an **HTTP API** — with persistent memory, tool execution, permission gating, and config-driven scheduled tasks (heartbeats).
 
 Works with **Anthropic (Claude)**, **OpenAI (GPT)**, or the **Portkey AI Gateway** — pick your provider, set one env var, and go.
 
@@ -18,6 +18,7 @@ Works with **Anthropic (Claude)**, **OpenAI (GPT)**, or the **Portkey AI Gateway
 - [Running](#running)
   - [Interactive REPL](#interactive-repl)
   - [Telegram Bot](#telegram-bot)
+  - [Slack Bot](#slack-bot)
   - [HTTP API](#http-api)
 - [Tools](#tools)
 - [Heartbeats (Scheduled Tasks)](#heartbeats-scheduled-tasks)
@@ -41,7 +42,8 @@ Works with **Anthropic (Claude)**, **OpenAI (GPT)**, or the **Portkey AI Gateway
 - **Permission control** — dangerous shell commands require operator approval in the terminal
 - **Heartbeat scheduler** — cron-like tasks defined in `config.json`, fired autonomously on a timer
 - **Customizable personality** — define who the agent is via `SOUL.md`
-- **Multi-channel** — Telegram, HTTP API, or interactive REPL
+- **Multi-channel** — Telegram, Slack, HTTP API, or interactive REPL
+- **Slack MR digest** — monitors Slack channels for GitLab MR links, sends a private DM digest to the owner
 - **Multi-agent routing** — prefix-based routing (e.g., `/research` routes to a different agent)
 
 ---
@@ -75,10 +77,13 @@ uv sync
 # With Telegram support
 uv sync --extra telegram
 
+# With Slack support
+uv sync --extra slack
+
 # With HTTP API support
 uv sync --extra http
 
-# Everything (Telegram + HTTP + Discord + dev tools)
+# Everything (Telegram + Slack + HTTP + Discord + dev tools)
 uv sync --all-extras
 ```
 
@@ -103,7 +108,7 @@ options:
   -h, --help            show this help message and exit
   --config CONFIG, -c CONFIG
                         Path to config.json file
-  --channel {repl,http,telegram}
+  --channel {repl,http,telegram,slack}
                         Channel to start (default: repl)
 ```
 
@@ -176,6 +181,16 @@ OPENCLAW_WORKSPACE=~/.mini-openclaw
 
 # ── Telegram only ──
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
+
+# ── Slack only (uv sync --extra slack) ──
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_APP_TOKEN=xapp-your-app-level-token
+SLACK_OWNER_ID=your-slack-member-id
+SLACK_CHANNEL_ID=                   # Optional — leave empty to scan all bot channels
+
+# ── GitLab (for MR review tool) ──
+GITLAB_URL=https://gitlab.com
+GITLAB_PRIVATE_TOKEN=glpat-your-token
 ```
 
 | Variable | Required | Default | Description |
@@ -190,6 +205,12 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
 | `OPENCLAW_WORKSPACE` | No | `~/.mini-openclaw` | Workspace directory |
 | `OPENCLAW_CONFIG` | No | — | Explicit path to config.json |
 | `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
+| `SLACK_BOT_TOKEN` | Slack only | — | Slack bot token (`xoxb-...`) |
+| `SLACK_APP_TOKEN` | Slack only | — | Slack app-level token (`xapp-...`) for Socket Mode |
+| `SLACK_OWNER_ID` | Slack only | — | Your Slack member ID (DM digest recipient) |
+| `SLACK_CHANNEL_ID` | No | *(all bot channels)* | Limit scanning to one channel |
+| `GITLAB_URL` | No | `https://gitlab.com` | GitLab instance URL (for `gitlab_mr` tool) |
+| `GITLAB_PRIVATE_TOKEN` | No | — | GitLab personal access token (enables MR enrichment) |
 
 ### Config File (Optional)
 
@@ -283,6 +304,31 @@ Open your bot in Telegram and send `/start`. The bot auto-captures your chat ID 
 
 Safe commands (ls, cat, git, python, etc.) are auto-approved.
 
+### Slack Bot
+
+**Setup (one-time):**
+
+1. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps) with **Socket Mode** enabled
+2. Add bot scopes: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `chat:write`, `im:write`, `users:read`
+3. Install the app to your workspace and invite the bot to the channels you want it to monitor
+4. Set env vars in `.env`: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_OWNER_ID`
+5. Optionally set `SLACK_CHANNEL_ID` to limit scanning to one channel
+6. For GitLab MR enrichment, also set `GITLAB_URL` and `GITLAB_PRIVATE_TOKEN`
+
+**Install & Run:**
+
+```bash
+uv sync --extra slack
+uv run openclaw --channel slack
+```
+
+**What it does:**
+- Monitors all Slack channels the bot is a member of for GitLab MR links
+- Sends you a private **DM digest** with MR details (title, state, author, reviewers, approval status)
+- Supports DM conversations with the bot owner (you) through the agent router
+- Heartbeat results (e.g., daily MR digest) are delivered as DMs to the owner
+- Never posts into public channels — listen-only
+
 ### HTTP API
 
 ```bash
@@ -312,6 +358,7 @@ The agent has access to these tools (LLM decides when to use them):
 | `save_memory` | Persist a fact to long-term memory (markdown file) | Always allowed |
 | `memory_search` | Search long-term memory for previously saved facts | Always allowed |
 | `web_search` | Search the web via DuckDuckGo | Always allowed |
+| `gitlab_mr` | Fetch GitLab MR details (title, state, author, reviewers, approval) | Always allowed (requires `GITLAB_PRIVATE_TOKEN`) |
 
 **Safe commands** (auto-approved): `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `find`, `echo`, `date`, `pwd`, `whoami`, `which`, `file`, `git`, `python`, `python3`, `node`, `npm`, `npx`, `uv`, `pip`, `ruff`, `pytest`, `go`, `cargo`, `make`
 
@@ -352,7 +399,7 @@ Heartbeats are autonomous tasks the agent runs on a schedule without user input.
 | Daily at time | `every day at 07:30` |
 | Weekly on day | `every monday at 09:00` |
 
-Each heartbeat gets its own isolated session (`cron:<name>`) so it doesn't pollute interactive conversations. Results are sent to the owner's Telegram chat (auto-detected from the first user interaction).
+Each heartbeat gets its own isolated session (`cron:<name>`) so it doesn't pollute interactive conversations. Results are sent to the owner's Telegram chat or Slack DM (auto-detected from the channel in use).
 
 ---
 
@@ -471,6 +518,7 @@ src/openclaw/
 │   ├── base.py              # Abstract channel interface
 │   ├── repl.py              # Interactive terminal REPL
 │   ├── telegram.py          # Telegram bot (python-telegram-bot)
+│   ├── slack_ch.py          # Slack bot (slack-bolt, Socket Mode)
 │   ├── http_api.py          # Flask REST API
 │   └── discord_ch.py        # Discord bot (placeholder)
 ├── heartbeat/
@@ -489,7 +537,8 @@ src/openclaw/
     ├── shell.py             # Shell command execution tool
     ├── filesystem.py        # File read/write tools
     ├── memory_tools.py      # save_memory / memory_search tools
-    └── web.py               # Web search tool (DuckDuckGo)
+    ├── web.py               # Web search tool (DuckDuckGo)
+    └── gitlab_mr.py         # GitLab MR details tool
 
 tests/                       # pytest test suite (12 test files)
 workspace/
@@ -504,11 +553,15 @@ workspace/
 |---------|----------|
 | `ModuleNotFoundError: No module named 'telegram'` | Run `uv sync --extra telegram` |
 | `ModuleNotFoundError: No module named 'flask'` | Run `uv sync --extra http` |
+| `ModuleNotFoundError: No module named 'slack_bolt'` | Run `uv sync --extra slack` |
+| `SLACK_BOT_TOKEN not set in .env` | Add your Slack bot token (`xoxb-...`) to `.env` |
+| `SLACK_APP_TOKEN not set in .env` | Add your Slack app-level token (`xapp-...`) to `.env` — needed for Socket Mode |
+| `SLACK_OWNER_ID not set in .env` | Set your Slack member ID in `.env` (find it in Slack profile → ⋮ → Copy member ID) |
 | `TELEGRAM_BOT_TOKEN not set in .env` | Add your bot token to the `.env` file |
 | No LLM API key set | Set one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `PORTKEY_API_KEY` in `.env` |
 | `ImportError: openai package required` | Run `uv add openai` (needed for Anthropic/OpenAI direct providers) |
 | Permission denied on shell commands | The operator terminal shows an approval prompt — type `y` to allow |
-| Heartbeats not firing | They start after first Telegram message. Check `config.json` has heartbeats defined |
+| Heartbeats not firing | They start after first Telegram message (Telegram) or immediately (Slack). Check `config.json` has heartbeats defined |
 | `uv sync --extra X` uninstalled other extras | Use `uv sync --all-extras` or combine: `uv sync --extra telegram --extra dev` |
 | Config not loading | Ensure `~/.mini-openclaw/config.json` exists, or pass `--config <path>` |
 
