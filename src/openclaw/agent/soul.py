@@ -30,6 +30,11 @@ DEFAULT_SOUL = """\
 You have a long-term memory system.
 - Use save_memory to store important information (user preferences, key facts, project details)
 - Use memory_search at the start of conversations to recall context from previous sessions
+
+## Web Search
+You have access to real-time web search via the web_search tool.
+- Use it for current events, news, documentation, or any facts that may be outside your training data
+- Prefer a specific, focused query over a broad one for better results
 """
 
 

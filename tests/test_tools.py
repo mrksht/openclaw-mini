@@ -164,8 +164,61 @@ class TestMemoryTools:
 
 
 class TestWebSearchTool:
-    def test_stub_returns_query(self):
-        tool = create_web_search_tool()
+    def test_no_api_key_returns_helpful_message(self):
+        tool = create_web_search_tool(api_key=None)
         result = tool.handler({"query": "python async"})
-        assert "python async" in result
-        assert "stub" in result.lower()
+        assert "TAVILY_API_KEY" in result
+
+    def test_no_api_key_empty_string(self):
+        tool = create_web_search_tool(api_key="")
+        result = tool.handler({"query": "test"})
+        assert "TAVILY_API_KEY" in result
+
+    def test_with_api_key_calls_tavily(self, monkeypatch):
+        fake_results = [
+            {
+                "title": "Python Asyncio Guide",
+                "url": "https://docs.python.org/asyncio",
+                "content": "Asyncio is a library to write concurrent code using async/await.",
+            },
+        ]
+
+        class FakeClient:
+            def __init__(self, api_key):
+                pass
+            def search(self, query, max_results=5):
+                return {"results": fake_results}
+
+        import openclaw.tools.web as web_mod
+        monkeypatch.setattr(web_mod, "_import_tavily_client", lambda: FakeClient)
+
+        tool = create_web_search_tool(api_key="test-key")
+        result = tool.handler({"query": "python async"})
+        assert "Python Asyncio Guide" in result
+        assert "docs.python.org" in result
+
+    def test_format_results_empty(self):
+        from openclaw.tools.web import _format_results
+        assert _format_results([]) == "No results found."
+
+    def test_format_results_truncates_long_snippets(self):
+        from openclaw.tools.web import _format_results
+        long_content = "word " * 200
+        results = [{"title": "T", "url": "https://x.com", "content": long_content}]
+        formatted = _format_results(results)
+        assert "…" in formatted
+
+    def test_tavily_exception_returns_error(self, monkeypatch):
+        class BrokenClient:
+            def __init__(self, api_key):
+                pass
+            def search(self, query, max_results=5):
+                raise RuntimeError("network error")
+
+        import openclaw.tools.web as web_mod
+        monkeypatch.setattr(web_mod, "_import_tavily_client", lambda: BrokenClient)
+
+        tool = create_web_search_tool(api_key="test-key")
+        result = tool.handler({"query": "failing query"})
+        assert "failed" in result.lower()
+        assert "network error" in result

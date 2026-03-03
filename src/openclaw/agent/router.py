@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from openclaw.agent.loop import OnToolUseCallback, run_agent_turn
 from openclaw.agent.soul import build_system_prompt, load_soul
+from openclaw.memory.store import MemoryStore
 from openclaw.session.store import SessionStore
 from openclaw.tools.registry import ToolRegistry
 
@@ -113,6 +114,8 @@ class AgentRouter:
         session_store: SessionStore,
         tool_registry: ToolRegistry,
         on_tool_use: OnToolUseCallback = None,
+        memory_store: MemoryStore | None = None,
+        hot_turns: int = 20,
     ) -> str:
         """Resolve the agent, build the session key, and run the turn.
 
@@ -124,6 +127,9 @@ class AgentRouter:
             session_store: Session persistence.
             tool_registry: Available tools.
             on_tool_use: Optional tool-use callback.
+            memory_store: Long-term memory store for cold-tier injection.
+                Pass None to skip (backward-compatible).
+            hot_turns: Number of recent user turns to keep verbatim.
 
         Returns:
             The agent's text response.
@@ -140,6 +146,8 @@ class AgentRouter:
             session_store=session_store,
             tool_registry=tool_registry,
             on_tool_use=on_tool_use,
+            memory_store=memory_store,
+            hot_turns=hot_turns,
         )
 
     @property

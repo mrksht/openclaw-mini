@@ -14,8 +14,11 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-# Load .env from project root if present
-load_dotenv()
+# Load .env from project root if present — anchor to this file's location
+# so it works regardless of the working directory the process is started from.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_HERE))  # src/openclaw → src → project root
+load_dotenv(os.path.join(_PROJECT_ROOT, ".env"), override=False)
 
 # ── LLM Settings ──
 # Supports three providers:
@@ -78,10 +81,15 @@ SLACK_OWNER_ID = os.getenv("SLACK_OWNER_ID", "")  # Your Slack member ID (DM tar
 GITLAB_URL = os.getenv("GITLAB_URL", "https://gitlab.com")
 GITLAB_PRIVATE_TOKEN = os.getenv("GITLAB_PRIVATE_TOKEN", "")
 
+# ── Web Search Settings ──
+
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+
 # ── Agent Settings ──
 
 MAX_TOOL_TURNS = 20
 COMPACTION_THRESHOLD_TOKENS = 100_000
+HOT_TURNS = int(os.getenv("OPENCLAW_HOT_TURNS", "20"))  # recent verbatim turns in tiered context
 
 
 def _detect_provider() -> str:

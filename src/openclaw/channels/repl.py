@@ -13,9 +13,11 @@ from openclaw.agent.soul import build_system_prompt, load_soul
 from openclaw.config import (
     APPROVALS_FILE,
     DEFAULT_MODEL,
+    HOT_TURNS,
     MEMORY_DIR,
     SESSIONS_DIR,
     SOUL_PATH,
+    TAVILY_API_KEY,
     WORKSPACE_DIR,
     get_portkey_client,
 )
@@ -74,7 +76,7 @@ def _build_registry(memory_store: MemoryStore, permission_manager: PermissionMan
     registry.register(create_write_file_tool())
     registry.register(create_save_memory_tool(memory_store))
     registry.register(create_memory_search_tool(memory_store))
-    registry.register(create_web_search_tool())
+    registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
     return registry
 
 
@@ -154,6 +156,8 @@ def run_repl():
                     session_store=session_store,
                     tool_registry=tool_registry,
                     on_tool_use=_on_tool_use,
+                    memory_store=memory_store,
+                    hot_turns=HOT_TURNS,
                 )
             agent_label = agent.name if agent.name != "Jarvis" else "\U0001f916"
             print(f"\n{agent_label} {response}\n")

@@ -59,7 +59,7 @@ def _start_http(config: AppConfig) -> None:
         print("Flask is required for the HTTP channel: uv sync --extra http")
         sys.exit(1)
 
-    from openclaw.config import get_portkey_client, ensure_workspace
+    from openclaw.config import get_portkey_client, ensure_workspace, TAVILY_API_KEY
     from openclaw.memory.store import MemoryStore
     from openclaw.permissions.manager import PermissionManager
     from openclaw.session.store import SessionStore
@@ -80,7 +80,7 @@ def _start_http(config: AppConfig) -> None:
     registry.register(create_write_file_tool())
     registry.register(create_save_memory_tool(memory_store))
     registry.register(create_memory_search_tool(memory_store))
-    registry.register(create_web_search_tool())
+    registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
 
     ch_conf = config.channels.get("http")
     host = ch_conf.host if ch_conf else "0.0.0.0"
@@ -112,6 +112,7 @@ def _start_telegram(config: AppConfig) -> None:
     from openclaw.config import (
         DEFAULT_MODEL, WORKSPACE_DIR, SESSIONS_DIR, MEMORY_DIR,
         APPROVALS_FILE, SOUL_PATH, ensure_workspace, get_portkey_client,
+        TAVILY_API_KEY,
     )
     from openclaw.memory.store import MemoryStore
     from openclaw.permissions.manager import PermissionManager
@@ -150,7 +151,7 @@ def _start_telegram(config: AppConfig) -> None:
     registry.register(create_write_file_tool())
     registry.register(create_save_memory_tool(memory_store))
     registry.register(create_memory_search_tool(memory_store))
-    registry.register(create_web_search_tool())
+    registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
 
     # Multi-agent: Jarvis (default) + Scout (/research)
     jarvis = AgentConfig(
@@ -263,7 +264,7 @@ def _start_slack(config: AppConfig) -> None:
         DEFAULT_MODEL, WORKSPACE_DIR, SESSIONS_DIR, MEMORY_DIR,
         APPROVALS_FILE, SOUL_PATH, ensure_workspace, get_portkey_client,
         SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_CHANNEL_ID, SLACK_OWNER_ID,
-        GITLAB_URL, GITLAB_PRIVATE_TOKEN,
+        GITLAB_URL, GITLAB_PRIVATE_TOKEN, TAVILY_API_KEY,
     )
     from openclaw.memory.store import MemoryStore
     from openclaw.permissions.manager import PermissionManager
@@ -301,7 +302,7 @@ def _start_slack(config: AppConfig) -> None:
     registry.register(create_write_file_tool())
     registry.register(create_save_memory_tool(memory_store))
     registry.register(create_memory_search_tool(memory_store))
-    registry.register(create_web_search_tool())
+    registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
 
     # Register GitLab MR tool if credentials are available
     if GITLAB_PRIVATE_TOKEN:

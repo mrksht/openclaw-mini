@@ -10,6 +10,7 @@ import json
 from typing import Any, Callable
 
 from openclaw.session.compaction import compact, estimate_tokens
+from openclaw.session.context_builder import build_tiered_context
 from openclaw.session.store import SessionStore
 from openclaw.tools.registry import ToolRegistry
 
@@ -82,6 +83,8 @@ def run_agent_turn(
     max_turns: int = 20,
     on_tool_use: OnToolUseCallback = None,
     compaction_threshold: int = 100_000,
+    memory_store=None,
+    hot_turns: int = 20,
 ) -> str:
     """Run one full agent turn: load session, call LLM in a loop, save.
 
@@ -113,8 +116,13 @@ def run_agent_turn(
     messages.append(user_msg)
     session_store.append(session_key, user_msg)
 
-    # Build the messages list with system prompt
-    api_messages = [{"role": "system", "content": system_prompt}] + messages
+    # Build the tiered context: [system] + cold memories + warm + hot turns
+    api_messages = build_tiered_context(
+        system_prompt=system_prompt,
+        messages=messages,
+        memory_store=memory_store,
+        hot_turns=hot_turns,
+    )
 
     # Get tool schemas
     tools = tool_registry.get_schemas()
