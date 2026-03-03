@@ -10,6 +10,7 @@
 - [Agent Loop — The Core Engine](#agent-loop--the-core-engine)
 - [Channels (Gateway Layer)](#channels-gateway-layer)
 - [Session Store](#session-store)
+- [Tiered Context Assembly](#tiered-context-assembly)
 - [Context Compaction](#context-compaction)
 - [Memory Store](#memory-store)
 - [Tool Registry & Tools](#tool-registry--tools)
@@ -114,6 +115,7 @@ Reads `.env` from the project root via `python-dotenv`. Module-level constants:
 | `WORKSPACE_DIR`             | `OPENCLAW_WORKSPACE` | `~/.mini-openclaw`                                            |
 | `MAX_TOOL_TURNS`            | —                    | `20`                                                          |
 | `COMPACTION_THRESHOLD_TOKENS` | —                  | `100,000`                                                     |
+| `HOT_TURNS`                 | `OPENCLAW_HOT_TURNS` | `20` (most-recent user turns kept verbatim in the hot tier)   |
 
 **Provider auto-detection priority:** If `LLM_PROVIDER` is not set, the first API key found wins:
 1. `PORTKEY_API_KEY` → Portkey gateway
@@ -442,6 +444,83 @@ Location: ~/.mini-openclaw/sessions/agent_main_repl_repl.jsonl
 
 ---
 
+## Tiered Context Assembly
+
+**File:** `src/openclaw/session/context_builder.py`
+
+Builds the final `api_messages` list sent to the LLM on every turn. Implements a **three-tier memory model**:
+
+```
+[system prompt]
+      ↓
+[COLD tier] — all long-term memory keys, always injected
+      ↓
+[WARM tier] — older session messages / compaction summary
+      ↓
+[HOT tier]  — last N verbatim user-turn pairs + current message
+```
+
+### Tier Breakdown
+
+| Tier | Source | Content | Always present? |
+|------|--------|---------|----------------|
+| **Cold** | `MemoryStore` | All `.md` files, assembled into one block | Only if memory exists |
+| **Warm** | Session history (older half) | Raw turns or a compaction summary | Only if session is long |
+| **Hot** | Session history (recent half) | Verbatim last `hot_turns` turns | Always |
+
+### Hot / Warm Split
+
+```
+_split_hot_warm(messages, hot_turns=20)
+     │
+     └── Walk backwards through messages counting user-message boundaries
+           │
+           ├── When hot_turns user messages found from the end → split there
+           │     ├── Everything before split index → WARM
+           │     └── Everything from split index onward → HOT
+           │
+           └── Fewer than hot_turns user messages? → all HOT, WARM is empty
+```
+
+The boundary always lands on a **user-message boundary** — the warm/hot split never cuts mid-tool-call.
+
+### Cold Tier Format
+
+All memory keys are read and formatted into a single injected `user` message:
+
+```
+[Long-term memory]
+
+--- user-preferences ---
+Prefers dark mode. Uses Python 3.12.
+
+--- project-notes ---
+Using FastAPI for the backend. Deployed on Fly.io.
+```
+
+This is injected **before** the session history on every turn, so the LLM always has access to saved facts without calling `memory_search`. If the memory store is empty, the cold block is skipped entirely.
+
+### Prompt Injection Order (Final)
+
+```python
+api_messages = [
+    {"role": "system", "content": system_prompt},      # 1. Identity + instructions
+    {"role": "user",   "content": "[Long-term memory]\n..."},  # 2. Cold tier
+    {"role": "assistant", "content": "Memory context loaded."},  # 3. ACK (keeps messages well-formed)
+    ...warm_messages...,                                # 4. Warm tier
+    ...hot_messages...,                                 # 5. Hot tier + current user msg
+]
+```
+
+### Configurability
+
+| Parameter | Env var | Default | Effect |
+|-----------|---------|---------|--------|
+| `hot_turns` | `OPENCLAW_HOT_TURNS` | `20` | Recent user turns kept verbatim |
+| Memory auto-inject | — | Always on | Pass `memory_store=None` to disable |
+
+---
+
 ## Context Compaction
 
 **File:** `src/openclaw/session/compaction.py`
@@ -509,11 +588,15 @@ Each memory is a **markdown file**:
 
 ### How the Agent Uses Memory
 
-The agent has two tools that bridge to this store:
-- **`save_memory`** — the agent calls this when it encounters important information (user preferences, project details, key decisions)
-- **`memory_search`** — the agent calls this to recall information from previous sessions
+Memory is used in two ways:
 
-The SOUL instructs the agent: *"Use `memory_search` at the start of conversations to recall context from previous sessions."*
+**Automatic (cold tier injection):** On every turn, `build_tiered_context()` reads all memory keys and injects them into the prompt before the session history. The agent always has access to saved facts without calling any tool.
+
+**Explicit tools (on-demand):**
+- **`save_memory`** — the agent calls this when it encounters important information (user preferences, project details, key decisions)
+- **`memory_search`** — useful for targeted queries when the agent wants to find a specific fact within a large memory set
+
+The SOUL instructs the agent: *"Facts you save with `save_memory` are automatically available in future conversations."*
 
 ---
 
@@ -908,7 +991,13 @@ You: What files are in /tmp?
    d. Appends {"role": "user", "content": "What files are in /tmp?"}
       → SessionStore.append() → writes to JSONL
 
-   e. LLM LOOP — Iteration 1:
+   e. build_tiered_context() assembles api_messages:
+      → [system prompt]
+      → [cold block: all memory keys injected as user message]  ← NEW
+      → [warm: older turns or compaction summary, if any]
+      → [hot: last 20 user turns verbatim + current message]
+
+   f. LLM LOOP — Iteration 1:
       → Calls LLM API (provider-dependent):
         POST <provider_base_url>/chat/completions
         {
@@ -1029,6 +1118,7 @@ You: What files are in /tmp?
 | `src/openclaw/channels/slack_ch.py` | ~448 | Slack bot channel (MR monitoring, DM digest) |
 | `src/openclaw/session/store.py` | ~110 | JSONL session persistence |
 | `src/openclaw/session/compaction.py` | ~110 | Context window compression |
+| `src/openclaw/session/context_builder.py` | ~120 | Tiered context assembly (cold/warm/hot) |
 | `src/openclaw/memory/store.py` | ~100 | Long-term file-based memory |
 | `src/openclaw/tools/registry.py` | ~95 | Tool registration & dispatch |
 | `src/openclaw/tools/shell.py` | ~55 | Shell command execution tool |

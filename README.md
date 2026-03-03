@@ -36,7 +36,8 @@ Works with **Anthropic (Claude)**, **OpenAI (GPT)**, or the **Portkey AI Gateway
 ## Features
 
 - **Multi-turn conversations** with full context, powered by Anthropic, OpenAI, or Portkey
-- **Persistent memory** — save and recall facts across sessions (`save_memory` / `memory_search`)
+- **Tiered context memory** — three-tier prompt injection: recent turns verbatim (hot) → older turns summarized (warm) → long-term facts always injected (cold)
+- **Persistent memory** — long-term facts auto-injected into every prompt; also searchable via `save_memory` / `memory_search`
 - **Session history** — JSONL-based logs with automatic compaction when context exceeds 100K tokens
 - **Tool use** — the LLM can run shell commands, read/write files, search the web
 - **Permission control** — dangerous shell commands require operator approval in the terminal
@@ -203,6 +204,7 @@ GITLAB_PRIVATE_TOKEN=glpat-your-token
 | `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | Custom OpenAI-compatible endpoint |
 | `PORTKEY_BASE_URL` | No | `https://api.portkey.ai/v1` | Portkey gateway URL |
 | `OPENCLAW_WORKSPACE` | No | `~/.mini-openclaw` | Workspace directory |
+| `OPENCLAW_HOT_TURNS` | No | `20` | Number of most-recent user turns kept verbatim in the hot tier of the prompt |
 | `OPENCLAW_CONFIG` | No | — | Explicit path to config.json |
 | `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
 | `SLACK_BOT_TOKEN` | Slack only | — | Slack bot token (`xoxb-...`) |
@@ -356,7 +358,7 @@ The agent has access to these tools (LLM decides when to use them):
 | `read_file` | Read the contents of a file | Always allowed |
 | `write_file` | Create or overwrite a file | Always allowed |
 | `save_memory` | Persist a fact to long-term memory (markdown file) | Always allowed |
-| `memory_search` | Search long-term memory for previously saved facts | Always allowed |
+| `memory_search` | Search long-term memory for a specific fact (all memories are also auto-injected into every prompt) | Always allowed |
 | `web_search` | Search the web via DuckDuckGo | Always allowed |
 | `gitlab_mr` | Fetch GitLab MR details (title, state, author, reviewers, approval) | Always allowed (requires `GITLAB_PRIVATE_TOKEN`) |
 
@@ -437,7 +439,7 @@ All runtime data lives in `~/.mini-openclaw/` (configurable via `OPENCLAW_WORKSP
 ```
 
 - **Sessions** are JSONL files — one JSON object per message. They auto-compact (summarize) when exceeding 100K tokens.
-- **Memory** files are plain markdown — fully human-readable and editable.
+- **Memory** files are plain markdown — fully human-readable and editable. All memory files are automatically injected into every LLM prompt (cold tier), so the agent always has access to saved facts without needing to call `memory_search` first.
 - **Approvals** cache previously approved commands so you don't re-approve the same command.
 
 ---
@@ -531,7 +533,8 @@ src/openclaw/
 │   └── command_queue.py     # Thread-safe command queue
 ├── session/
 │   ├── store.py             # JSONL session persistence
-│   └── compaction.py        # Context window compaction (summarization)
+│   ├── compaction.py        # Context window compaction (summarization)
+│   └── context_builder.py   # Tiered context assembly: cold → warm → hot
 └── tools/
     ├── registry.py          # Tool registration and lookup
     ├── shell.py             # Shell command execution tool
