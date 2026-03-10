@@ -57,6 +57,7 @@ class TelegramChannel(ChannelAdapter):
         command_queue: Any,
         bot_token: str,
         on_first_chat: Any = None,
+        memory_store: Any = None,
     ) -> None:
         self._router = router
         self._session_store = session_store
@@ -64,6 +65,7 @@ class TelegramChannel(ChannelAdapter):
         self._command_queue = command_queue
         self._bot_token = bot_token
         self._on_first_chat = on_first_chat
+        self._memory_store = memory_store
         self._first_chat_captured = False
         self._app: Any = None
 
@@ -97,6 +99,7 @@ class TelegramChannel(ChannelAdapter):
         session_store = self._session_store
         tool_registry = self._tool_registry
         command_queue = self._command_queue
+        memory_store = self._memory_store
 
         def _log(msg: str) -> None:
             """Print to terminal so operator can see bot activity."""
@@ -174,6 +177,7 @@ class TelegramChannel(ChannelAdapter):
                         session_store=session_store,
                         tool_registry=tool_registry,
                         on_tool_use=_on_tool_use,
+                        memory_store=memory_store,
                     )
 
                 # Split long responses to fit Telegram's 4096 char limit
@@ -216,6 +220,7 @@ class TelegramChannel(ChannelAdapter):
                         session_store=session_store,
                         tool_registry=tool_registry,
                         on_tool_use=_on_tool_use,
+                        memory_store=memory_store,
                     )
 
                 resp_preview = (response or "(no response)")[:100]

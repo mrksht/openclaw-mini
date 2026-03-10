@@ -40,7 +40,6 @@ class AgentConfig:
 
     def __post_init__(self):
         self._soul: str | None = None
-        self._system_prompt: str | None = None
 
     @property
     def soul(self) -> str:
@@ -50,11 +49,9 @@ class AgentConfig:
 
     @property
     def system_prompt(self) -> str:
-        if self._system_prompt is None:
-            self._system_prompt = build_system_prompt(
-                self.soul, workspace_path=self.workspace_path
-            )
-        return self._system_prompt
+        return build_system_prompt(
+            self.soul, workspace_path=self.workspace_path
+        )
 
 
 class AgentRouter:

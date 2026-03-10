@@ -70,6 +70,23 @@ class TestApprovals:
             data = json.load(f)
         assert "bad-command" in data["denied"]
 
+    def test_denied_command_returns_denied(self, tmp_path):
+        """Previously denied commands return 'denied' instead of 'needs_approval'."""
+        approvals_path = str(tmp_path / "approvals.json")
+        pm = PermissionManager(
+            approvals_path,
+            approval_callback=lambda cmd: False,
+        )
+        assert pm.check("bad-command") == "needs_approval"
+        pm.request_approval("bad-command")
+
+        # Should now be denied (not re-prompted)
+        assert pm.check("bad-command") == "denied"
+
+        # Should persist across instances
+        pm2 = PermissionManager(approvals_path)
+        assert pm2.check("bad-command") == "denied"
+
     def test_no_callback_denies(self, tmp_path):
         pm = PermissionManager(str(tmp_path / "approvals.json"))
         result = pm.request_approval("some-command")

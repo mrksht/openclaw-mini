@@ -59,21 +59,31 @@ def _start_http(config: AppConfig) -> None:
         print("Flask is required for the HTTP channel: uv sync --extra http")
         sys.exit(1)
 
-    from openclaw.config import get_portkey_client, ensure_workspace, TAVILY_API_KEY
+    import os
+    from openclaw.agent.router import AgentConfig, AgentRouter
+    from openclaw.config import (
+        DEFAULT_MODEL, WORKSPACE_DIR, SESSIONS_DIR, MEMORY_DIR,
+        APPROVALS_FILE, SOUL_PATH, ensure_workspace, get_portkey_client,
+        TAVILY_API_KEY, GITLAB_URL, GITLAB_PRIVATE_TOKEN,
+    )
     from openclaw.memory.store import MemoryStore
     from openclaw.permissions.manager import PermissionManager
+    from openclaw.queue.command_queue import CommandQueue
     from openclaw.session.store import SessionStore
     from openclaw.tools.filesystem import create_read_file_tool, create_write_file_tool
     from openclaw.tools.memory_tools import create_memory_search_tool, create_save_memory_tool
     from openclaw.tools.registry import ToolRegistry
     from openclaw.tools.shell import create_shell_tool
     from openclaw.tools.web import create_web_search_tool
+    from openclaw.tools.gitlab_mr import create_gitlab_mr_tool
 
     ensure_workspace()
-    client = get_portkey_client()
-    session_store = SessionStore(config.workspace + "/sessions")
-    memory_store = MemoryStore(config.workspace + "/memory")
-    pm = PermissionManager(config.workspace + "/exec-approvals.json")
+    model = config.default_model or DEFAULT_MODEL
+
+    session_store = SessionStore(SESSIONS_DIR)
+    memory_store = MemoryStore(MEMORY_DIR)
+    pm = PermissionManager(APPROVALS_FILE)
+    command_queue = CommandQueue()
     registry = ToolRegistry()
     registry.register(create_shell_tool(pm))
     registry.register(create_read_file_tool())
@@ -82,19 +92,46 @@ def _start_http(config: AppConfig) -> None:
     registry.register(create_memory_search_tool(memory_store))
     registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
 
+    # Register GitLab MR tool if credentials are available
+    if GITLAB_PRIVATE_TOKEN:
+        registry.register(create_gitlab_mr_tool(GITLAB_URL, GITLAB_PRIVATE_TOKEN))
+    else:
+        print("  \u26a0\ufe0f  GITLAB_PRIVATE_TOKEN not set \u2014 gitlab_mr tool disabled")
+
+    # Multi-agent: Jarvis (default) + Scout (/research)
+    jarvis = AgentConfig(
+        name="Jarvis", model=model, soul_path=SOUL_PATH,
+        session_prefix="agent:main", workspace_path=WORKSPACE_DIR,
+    )
+    scout_soul = os.path.join(WORKSPACE_DIR, "SCOUT.md")
+    scout = AgentConfig(
+        name="Scout", model=model,
+        soul_path=scout_soul if os.path.exists(scout_soul) else None,
+        prefix="/research", session_prefix="agent:research",
+        workspace_path=WORKSPACE_DIR,
+    )
+    router = AgentRouter(default_agent=jarvis, agents=[scout])
+
     ch_conf = config.channels.get("http")
     host = ch_conf.host if ch_conf else "0.0.0.0"
     port = ch_conf.port if ch_conf else 5000
 
     channel = HttpApiChannel(
-        client=client,
-        model=config.default_model,
+        router=router,
         session_store=session_store,
         tool_registry=registry,
+        command_queue=command_queue,
+        memory_store=memory_store,
         host=host,
         port=port,
     )
-    print(f"Starting HTTP API on {host}:{port}")
+
+    print("Mini OpenClaw \u2014 HTTP API")
+    print(f"  Model: {model}")
+    print(f"  Agents: {', '.join(router.agent_names)}")
+    print(f"  Tools: {', '.join(registry.tool_names)}")
+    print(f"  Listening on {host}:{port}")
+    print()
     channel.start()
 
 
@@ -112,7 +149,7 @@ def _start_telegram(config: AppConfig) -> None:
     from openclaw.config import (
         DEFAULT_MODEL, WORKSPACE_DIR, SESSIONS_DIR, MEMORY_DIR,
         APPROVALS_FILE, SOUL_PATH, ensure_workspace, get_portkey_client,
-        TAVILY_API_KEY,
+        TAVILY_API_KEY, GITLAB_URL, GITLAB_PRIVATE_TOKEN,
     )
     from openclaw.memory.store import MemoryStore
     from openclaw.permissions.manager import PermissionManager
@@ -123,6 +160,7 @@ def _start_telegram(config: AppConfig) -> None:
     from openclaw.tools.registry import ToolRegistry
     from openclaw.tools.shell import create_shell_tool
     from openclaw.tools.web import create_web_search_tool
+    from openclaw.tools.gitlab_mr import create_gitlab_mr_tool
 
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     if not bot_token:
@@ -152,6 +190,12 @@ def _start_telegram(config: AppConfig) -> None:
     registry.register(create_save_memory_tool(memory_store))
     registry.register(create_memory_search_tool(memory_store))
     registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
+
+    # Register GitLab MR tool if credentials are available
+    if GITLAB_PRIVATE_TOKEN:
+        registry.register(create_gitlab_mr_tool(GITLAB_URL, GITLAB_PRIVATE_TOKEN))
+    else:
+        print("  \u26a0\ufe0f  GITLAB_PRIVATE_TOKEN not set \u2014 gitlab_mr tool disabled")
 
     # Multi-agent: Jarvis (default) + Scout (/research)
     jarvis = AgentConfig(
@@ -246,6 +290,7 @@ def _start_telegram(config: AppConfig) -> None:
         command_queue=command_queue,
         bot_token=bot_token,
         on_first_chat=set_owner_chat_id,
+        memory_store=memory_store,
     )
     channel.start()
 
@@ -308,7 +353,7 @@ def _start_slack(config: AppConfig) -> None:
     if GITLAB_PRIVATE_TOKEN:
         registry.register(create_gitlab_mr_tool(GITLAB_URL, GITLAB_PRIVATE_TOKEN))
     else:
-        print("  ⚠️  GITLAB_PRIVATE_TOKEN not set — gitlab_mr tool disabled")
+        print("  \u26a0\ufe0f  GITLAB_PRIVATE_TOKEN not set \u2014 gitlab_mr tool disabled")
 
     # Multi-agent: Jarvis (default) + Scout (/research)
     jarvis = AgentConfig(

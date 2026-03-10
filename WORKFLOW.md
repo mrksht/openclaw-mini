@@ -677,15 +677,18 @@ Input:  {"query": "preferences"}
 Output: "--- user-preferences ---\nPrefers dark mode. Uses Python 3.12."
 ```
 
-#### 6. `web_search` — Web Search (stub)
+#### 6. `web_search` — Web Search (Tavily)
 **File:** `src/openclaw/tools/web.py`
 
 ```
 Input:  {"query": "Python 3.13 release date"}
-Output: "[Web search stub] Results for: Python 3.13 release date\nNote: Connect a real search API..."
+Output: "1. **Python 3.13 Release Schedule**\n   URL: https://peps.python.org/pep-0719/\n   Python 3.13 was released on October 7, 2024…"
 ```
 
-Currently a placeholder. To enable real search, connect SerpAPI, Brave Search, or similar.
+- Powered by the [Tavily](https://tavily.com/) search API
+- Requires `TAVILY_API_KEY` environment variable — returns a helpful "not configured" message if missing
+- Returns up to 5 results with titles, URLs, and content snippets
+- Gracefully handles API errors without crashing
 
 #### 7. `gitlab_mr` — GitLab Merge Request Details
 **File:** `src/openclaw/tools/gitlab_mr.py`

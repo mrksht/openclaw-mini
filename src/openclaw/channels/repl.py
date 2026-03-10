@@ -13,7 +13,12 @@ from openclaw.agent.soul import build_system_prompt, load_soul
 from openclaw.config import (
     APPROVALS_FILE,
     DEFAULT_MODEL,
+    GITLAB_PRIVATE_TOKEN,
+    GITLAB_URL,
     HOT_TURNS,
+    JIRA_API_TOKEN,
+    JIRA_URL,
+    JIRA_USER_EMAIL,
     MEMORY_DIR,
     SESSIONS_DIR,
     SOUL_PATH,
@@ -30,6 +35,10 @@ from openclaw.tools.memory_tools import create_memory_search_tool, create_save_m
 from openclaw.tools.registry import ToolRegistry
 from openclaw.tools.shell import create_shell_tool
 from openclaw.tools.web import create_web_search_tool
+from openclaw.tools.gitlab_mr import create_gitlab_mr_tool
+from openclaw.tools.gitlab_pipeline import create_gitlab_pipeline_tool
+from openclaw.tools.jira_ticket import create_jira_tool
+from openclaw.tools.list_dir import create_list_dir_tool
 
 
 def _approval_prompt(command: str) -> bool:
@@ -77,6 +86,14 @@ def _build_registry(memory_store: MemoryStore, permission_manager: PermissionMan
     registry.register(create_save_memory_tool(memory_store))
     registry.register(create_memory_search_tool(memory_store))
     registry.register(create_web_search_tool(api_key=TAVILY_API_KEY))
+    registry.register(create_list_dir_tool())
+    # Register GitLab tools if credentials are available
+    if GITLAB_PRIVATE_TOKEN:
+        registry.register(create_gitlab_mr_tool(GITLAB_URL, GITLAB_PRIVATE_TOKEN))
+        registry.register(create_gitlab_pipeline_tool(GITLAB_URL, GITLAB_PRIVATE_TOKEN))
+    # Register Jira tool if credentials are available
+    if JIRA_API_TOKEN:
+        registry.register(create_jira_tool(JIRA_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN))
     return registry
 
 

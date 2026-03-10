@@ -52,6 +52,7 @@ class PermissionManager:
         Returns:
             "safe" — base command is in the safe set
             "approved" — exact command was previously approved
+            "denied" — exact command was previously denied
             "needs_approval" — command requires user approval
         """
         base_cmd = command.strip().split()[0] if command.strip() else ""
@@ -61,6 +62,9 @@ class PermissionManager:
         approvals = self._load_approvals()
         if command in approvals.get("allowed", []):
             return "approved"
+
+        if command in approvals.get("denied", []):
+            return "denied"
 
         return "needs_approval"
 

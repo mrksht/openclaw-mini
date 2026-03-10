@@ -16,6 +16,7 @@ from typing import Any
 
 from openclaw.agent.router import AgentRouter
 from openclaw.channels.base import ChannelAdapter
+from openclaw.memory.store import MemoryStore
 from openclaw.queue.command_queue import CommandQueue
 from openclaw.session.store import SessionStore
 from openclaw.tools.registry import ToolRegistry
@@ -44,6 +45,7 @@ class HttpApiChannel(ChannelAdapter):
         session_store: SessionStore,
         tool_registry: ToolRegistry,
         command_queue: CommandQueue,
+        memory_store: MemoryStore | None = None,
         host: str = "0.0.0.0",
         port: int = 5000,
     ) -> None:
@@ -51,6 +53,7 @@ class HttpApiChannel(ChannelAdapter):
         self._session_store = session_store
         self._tool_registry = tool_registry
         self._command_queue = command_queue
+        self._memory_store = memory_store
         self._host = host
         self._port = port
         self._thread: threading.Thread | None = None
@@ -97,6 +100,7 @@ class HttpApiChannel(ChannelAdapter):
                         user_id=user_id,
                         session_store=self._session_store,
                         tool_registry=self._tool_registry,
+                        memory_store=self._memory_store,
                     )
                 return jsonify({"response": response})
             except Exception as e:

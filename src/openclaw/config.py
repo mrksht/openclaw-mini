@@ -81,6 +81,12 @@ SLACK_OWNER_ID = os.getenv("SLACK_OWNER_ID", "")  # Your Slack member ID (DM tar
 GITLAB_URL = os.getenv("GITLAB_URL", "https://gitlab.com")
 GITLAB_PRIVATE_TOKEN = os.getenv("GITLAB_PRIVATE_TOKEN", "")
 
+# ── Jira Settings ──
+
+JIRA_URL = os.getenv("JIRA_URL", "")
+JIRA_USER_EMAIL = os.getenv("JIRA_USER_EMAIL", "")
+JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")
+
 # ── Web Search Settings ──
 
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")

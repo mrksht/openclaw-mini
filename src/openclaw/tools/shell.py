@@ -24,6 +24,8 @@ def create_shell_tool(permission_manager: PermissionManager) -> Tool:
 
         # Check permissions
         safety = permission_manager.check(command)
+        if safety == "denied":
+            return "Permission denied. This command was previously denied by the operator."
         if safety == "needs_approval":
             approved = permission_manager.request_approval(command)
             if not approved:

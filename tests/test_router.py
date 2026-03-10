@@ -49,6 +49,18 @@ class TestAgentConfig:
         prompt = config.system_prompt
         assert "Assistant" in prompt
 
+    def test_system_prompt_not_cached(self):
+        """System prompt should be rebuilt on each access (date freshness)."""
+        config = AgentConfig(name="Test", model="m")
+        prompt1 = config.system_prompt
+        prompt2 = config.system_prompt
+        # Both should contain the date — and be independently built
+        assert "Current date" in prompt1
+        assert "Current date" in prompt2
+        # They should be equal (same content) but are separate builds,
+        # not the same cached object
+        assert prompt1 is not prompt2
+
     def test_custom_soul(self, tmp_path):
         soul_file = tmp_path / "custom.md"
         soul_file.write_text("I am a custom agent")

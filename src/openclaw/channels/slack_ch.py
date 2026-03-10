@@ -343,6 +343,7 @@ class SlackChannel(ChannelAdapter):
         session_store = self._session_store
         tool_registry = self._tool_registry
         command_queue = self._command_queue
+        memory_store = self._memory_store
         channel_id = self._channel_id
         owner_id = self._owner_id
 
@@ -406,6 +407,7 @@ class SlackChannel(ChannelAdapter):
                             session_store=session_store,
                             tool_registry=tool_registry,
                             on_tool_use=_on_tool_use,
+                            memory_store=memory_store,
                         )
                     say(response or "(no response)")
                     _log(f"✅ Response sent")
