@@ -310,12 +310,57 @@ Safe commands (ls, cat, git, python, etc.) are auto-approved.
 
 **Setup (one-time):**
 
-1. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps) with **Socket Mode** enabled
-2. Add bot scopes: `channels:history`, `channels:read`, `groups:history`, `groups:read`, `chat:write`, `im:write`, `users:read`
-3. Install the app to your workspace and invite the bot to the channels you want it to monitor
-4. Set env vars in `.env`: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_OWNER_ID`
-5. Optionally set `SLACK_CHANNEL_ID` to limit scanning to one channel
-6. For GitLab MR enrichment, also set `GITLAB_URL` and `GITLAB_PRIVATE_TOKEN`
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. Give it a name (e.g., "OpenClaw") and select your workspace
+
+3. **Enable Socket Mode:**
+   - Sidebar → **Socket Mode** → toggle **Enable Socket Mode** on
+   - You'll be prompted to create an **App-Level Token** — name it (e.g., `openclaw-socket`), add the scope `connections:write`, and click **Generate**
+   - Copy the token (`xapp-...`) — this is your `SLACK_APP_TOKEN`
+
+4. **Subscribe to bot events:**
+   - Sidebar → **Event Subscriptions** → toggle **Enable Events** on
+   - Under **Subscribe to bot events**, add these events:
+     - `message.channels` — messages in public channels
+     - `message.groups` — messages in private channels
+     - `message.im` — direct messages to the bot
+
+5. **Add bot token scopes:**
+   - Sidebar → **OAuth & Permissions** → scroll to **Scopes → Bot Token Scopes**
+   - Add these scopes:
+
+   | Scope | Why it's needed |
+   |-------|----------------|
+   | `channels:history` | Read messages in public channels the bot is in |
+   | `channels:read` | List and get info about public channels |
+   | `groups:history` | Read messages in private channels the bot is in |
+   | `groups:read` | List and get info about private channels |
+   | `chat:write` | Send messages (DM digests to the owner) |
+   | `im:history` | Read DM messages sent to the bot |
+   | `im:read` | Check if a conversation is a DM (`conversations_info`) |
+   | `im:write` | Open DM conversations with the owner |
+   | `users:read` | Resolve user IDs to display names |
+
+6. **Install the app:**
+   - Sidebar → **Install App** → **Install to Workspace** → **Allow**
+   - Copy the **Bot User OAuth Token** (`xoxb-...`) — this is your `SLACK_BOT_TOKEN`
+
+7. **Invite the bot to channels:**
+   - In Slack, go to each channel you want monitored → type `/invite @OpenClaw`
+
+8. **Find your Slack Member ID:**
+   - Click your profile picture in Slack → **Profile** → **⋮ (More)** → **Copy member ID**
+   - This is your `SLACK_OWNER_ID`
+
+9. **Set env vars** in `.env`:
+   ```env
+   SLACK_BOT_TOKEN=xoxb-your-bot-token
+   SLACK_APP_TOKEN=xapp-your-app-level-token
+   SLACK_OWNER_ID=U0XXXXXXX
+   SLACK_CHANNEL_ID=              # Optional — leave empty to scan all bot channels
+   ```
+
+10. *(Optional)* For GitLab MR enrichment, also set `GITLAB_URL` and `GITLAB_PRIVATE_TOKEN`
 
 **Install & Run:**
 

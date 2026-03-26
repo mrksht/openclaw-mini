@@ -8,12 +8,14 @@ Requires slack-bolt + slack-sdk: install with `uv sync --extra slack`
 
 To enable:
 1. Create a Slack app at https://api.slack.com/apps with Socket Mode enabled
-2. Add bot scopes: channels:history, channels:read, groups:history, groups:read,
-   chat:write, im:write, users:read
-3. Install app to workspace, invite bot to the channels you want monitored
-4. Set env vars: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_OWNER_ID
+2. Create an App-Level Token with scope: connections:write
+3. Subscribe to bot events: message.channels, message.groups, message.im
+4. Add bot scopes: channels:history, channels:read, groups:history, groups:read,
+   chat:write, im:history, im:read, im:write, users:read
+5. Install app to workspace, invite bot to the channels you want monitored
+6. Set env vars: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_OWNER_ID
    Optionally set SLACK_CHANNEL_ID to limit to one channel.
-5. Run: uv run openclaw --channel slack
+7. Run: uv run openclaw --channel slack
 """
 
 from __future__ import annotations
